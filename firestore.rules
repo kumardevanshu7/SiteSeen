@@ -1,0 +1,30 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Sites archive ──────────────────────────────────────────────
+    // No client access. Reads/writes only via Admin SDK after
+    // Google Auth (+ One Password for mutations). Per-user ownership
+    // is enforced in API routes (ownerUid).
+    match /sites/{siteId} {
+      allow read, write: if false;
+    }
+
+    // ── App settings (One Password & secrets) ──────────────────────
+    // Never expose answer hashes or salts to clients.
+    match /settings/{docId} {
+      allow read, write: if false;
+    }
+
+    // ── Unlock audit / rate-limit markers (server only) ────────────
+    match /security/{docId} {
+      allow read, write: if false;
+    }
+
+    // ── Default deny ───────────────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
