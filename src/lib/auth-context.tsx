@@ -42,25 +42,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const unsub = onAuthStateChanged(
-      auth,
-      (next) => {
-        setUser(next);
-        setLoading(false);
-      },
-      (err) => {
-        console.error("Auth state error:", err);
-        setLoading(false);
-      }
-    );
+    const unsub = onAuthStateChanged(auth, (next) => {
+      setUser(next);
+      setLoading(false);
+    });
 
-    // Safety: never spin forever if Firebase hangs
-    const timeout = setTimeout(() => setLoading(false), 8000);
-
-    return () => {
-      clearTimeout(timeout);
-      unsub();
-    };
+    return () => unsub();
   }, []);
 
   const signInWithGoogle = async () => {
@@ -71,7 +58,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await signInWithPopup(auth, googleProvider);
       toast.success("Signed in with Google");
-    } catch (err) {
+    } catch (err: unknown) {
+      const code = (err as { code?: string })?.code;
+      if (
+        code === "auth/cancelled-popup-request" ||
+        code === "auth/popup-closed-by-user"
+      ) {
+        return;
+      }
       console.error(err);
       toast.error("Google sign-in failed.");
     }
@@ -80,10 +74,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     if (!auth) return;
     try {
-      if (typeof window !== "undefined") {
-        sessionStorage.removeItem("siteseen_one_password_unlock");
-        localStorage.removeItem("siteseen_bookmarks");
-      }
+      sessionStorage.removeItem("siteseen_one_password_unlock");
+      localStorage.removeItem("siteseen_bookmarks");
       await firebaseSignOut(auth);
       toast.success("Signed out");
     } catch (err) {

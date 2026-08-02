@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { getSiteById, deleteSite, SavedSite } from "@/lib/db";
+import { getSiteById, getSites, deleteSite, SavedSite } from "@/lib/db";
 import { useAuth } from "@/lib/auth-context";
 import { useOnePassword } from "@/lib/one-password-context";
 import RequireAuth from "@/components/RequireAuth";
+import SiteCard from "@/components/SiteCard";
 import {
   ArrowLeft,
   ArrowUpRight,
@@ -19,6 +20,9 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
+import { BrandLoader } from "@/components/SiteSeenMark";
+
+const cacheKey = (id: string) => `siteseen_site_${id}`;
 
 export default function SitePage() {
   return (
@@ -28,40 +32,74 @@ export default function SitePage() {
   );
 }
 
+function getHostname(url: string) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
+function readCachedSite(id: string): SavedSite | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(cacheKey(id));
+    if (!raw) return null;
+    return JSON.parse(raw) as SavedSite;
+  } catch {
+    return null;
+  }
+}
+
 function SiteInner() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { user, getIdToken } = useAuth();
   const { unlockToken, requireEditAccess } = useOnePassword();
-  const [site, setSite] = useState<SavedSite | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [site, setSite] = useState<SavedSite | null>(() => readCachedSite(id));
+  const [allSites, setAllSites] = useState<SavedSite[]>([]);
+  const [loading, setLoading] = useState(!site);
   const [notFound, setNotFound] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const hostname = site
-    ? (() => {
-        try {
-          return new URL(site.url).hostname;
-        } catch {
-          return site.url;
-        }
-      })()
-    : "";
+  const hostname = site ? getHostname(site.url) : "";
+
+  useEffect(() => {
+    const cached = readCachedSite(id);
+    if (cached) {
+      setSite(cached);
+      setLoading(false);
+      setNotFound(false);
+    }
+  }, [id]);
 
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
     async function load() {
-      setLoading(true);
+      if (!site) setLoading(true);
       try {
         const token = await getIdToken();
-        const data = await getSiteById(id, token);
+        const [data, list] = await Promise.all([
+          getSiteById(id, token),
+          getSites(token),
+        ]);
         if (cancelled) return;
-        if (!data) setNotFound(true);
-        else setSite(data);
+        if (!data) {
+          if (!site) setNotFound(true);
+        } else {
+          setSite(data);
+          setNotFound(false);
+          try {
+            sessionStorage.setItem(cacheKey(id), JSON.stringify(data));
+          } catch {
+            // ignore
+          }
+        }
+        setAllSites(list);
       } catch {
-        if (!cancelled) setNotFound(true);
+        if (!cancelled && !site) setNotFound(true);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -70,11 +108,50 @@ function SiteInner() {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, user, getIdToken]);
+
+  const suggestions = useMemo(() => {
+    if (!site) return [] as SavedSite[];
+    const tags = (site.tags || []).map((t) => t.toLowerCase());
+    const category = (site.category || "").toLowerCase();
+
+    return allSites
+      .filter((s) => s.id !== site.id)
+      .map((s) => {
+        let score = 0;
+        const sTags = (s.tags || []).map((t) => t.toLowerCase());
+        for (const tag of tags) {
+          if (sTags.includes(tag)) score += 3;
+        }
+        if (category && s.category?.toLowerCase() === category) score += 2;
+        return { site: s, score };
+      })
+      .filter((x) => x.score > 0)
+      .sort((a, b) => b.score - a.score || b.site.createdAt - a.site.createdAt)
+      .slice(0, 6)
+      .map((x) => x.site);
+  }, [site, allSites]);
+
+  const goBack = () => {
+    try {
+      sessionStorage.setItem("siteseen_slide_back", "1");
+    } catch {
+      // ignore
+    }
+    window.dispatchEvent(new Event("siteseen-page-exit"));
+    window.setTimeout(() => {
+      if (typeof window !== "undefined" && window.history.length > 1) {
+        router.back();
+      } else {
+        router.push("/collections");
+      }
+    }, 200);
+  };
 
   const handleDelete = async () => {
     if (!site) return;
-    const ok = await requireEditAccess();
+    const ok = await requireEditAccess({ force: true });
     if (!ok) return;
     setIsDeleting(true);
     try {
@@ -85,6 +162,11 @@ function SiteInner() {
           ? sessionStorage.getItem("siteseen_one_password_unlock")
           : null);
       await deleteSite(site.id, token, unlock);
+      try {
+        sessionStorage.removeItem(cacheKey(site.id));
+      } catch {
+        // ignore
+      }
       toast.success("Pin removed from collection");
       router.push("/collections");
     } catch {
@@ -94,17 +176,26 @@ function SiteInner() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-surface-soft flex items-center justify-center">
-        <div className="h-8 w-8 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
-      </div>
-    );
+  const handleDeleteSuggestion = async (sid: string) => {
+    const ok = await requireEditAccess({ force: true });
+    if (!ok) throw new Error("Edit access required");
+    const token = await getIdToken();
+    const unlock =
+      unlockToken ||
+      (typeof window !== "undefined"
+        ? sessionStorage.getItem("siteseen_one_password_unlock")
+        : null);
+    await deleteSite(sid, token, unlock);
+    setAllSites((prev) => prev.filter((s) => s.id !== sid));
+  };
+
+  if (loading && !site) {
+    return <BrandLoader label="Loading pin..." />;
   }
 
-  if (notFound || !site) {
+  if ((notFound || !site) && !loading) {
     return (
-      <div className="min-h-screen bg-surface-soft flex flex-col items-center justify-center gap-6 px-4">
+      <div className="min-h-[100dvh] bg-surface-soft flex flex-col items-center justify-center gap-6 px-4">
         <Layers className="h-12 w-12 text-ash" />
         <div className="text-center">
           <h1 className="type-heading-lg text-ink mb-2">Pin not found</h1>
@@ -120,79 +211,74 @@ function SiteInner() {
     );
   }
 
+  if (!site) return null;
+
+  const markSrc = site.favicon || site.imageUrl;
+
   return (
-    <div className="min-h-screen bg-surface-soft text-body">
-      <header className="sticky top-0 z-40 h-16 bg-canvas border-b border-hairline flex items-center px-4 md:px-6 gap-4">
-        <Link
-          href="/collections"
-          className="inline-flex items-center gap-1.5 type-body-strong text-ink hover:opacity-70"
+    <div className="min-h-[100dvh] bg-surface-soft text-body flex flex-col">
+      <header className="sticky top-0 z-40 h-14 md:h-16 bg-canvas/95 backdrop-blur border-b border-hairline flex items-center px-3 md:px-6 gap-3">
+        <button
+          type="button"
+          onClick={goBack}
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-card text-ink shrink-0"
+          aria-label="Back"
         >
-          <ArrowLeft className="h-4 w-4" />
-          <span className="hidden sm:inline">Explore</span>
-        </Link>
-        <span className="type-body-sm text-mute truncate">{site.title}</span>
+          <ArrowLeft className="h-5 w-5" />
+        </button>
+        <span className="type-body-sm font-semibold text-ink truncate">
+          {site.title}
+        </span>
       </header>
 
-      <section className="mx-auto max-w-content px-4 md:px-6 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8">
-          <div>
-            <div className="overflow-hidden rounded-lg bg-surface-card">
-              {site.imageUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={site.imageUrl}
-                  alt={site.title}
-                  className="w-full h-auto object-cover"
-                  onError={(e) => {
-                    (e.currentTarget.style.display = "none");
-                  }}
-                />
-              ) : (
-                <div className="aspect-[4/5] flex flex-col items-center justify-center gap-4 bg-surface-card">
-                  {site.favicon ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={site.favicon}
-                      alt=""
-                      className="h-16 w-16 rounded-full object-contain"
-                    />
-                  ) : (
-                    <div className="h-16 w-16 rounded-full bg-canvas flex items-center justify-center type-heading-xl text-ink">
-                      {hostname[0]?.toUpperCase() ?? "?"}
-                    </div>
-                  )}
-                  <p className="text-[12px] text-mute">No screenshot</p>
-                </div>
-              )}
+      <div className="flex-1 pb-[88px] md:pb-10">
+        <main className="mx-auto w-full max-w-xl px-4 pt-5 md:pt-8 space-y-6">
+          <article className="rounded-2xl border border-hairline bg-canvas p-5 md:p-7 space-y-4 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-hairline bg-secondary overflow-hidden">
+                {markSrc ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={markSrc}
+                    alt=""
+                    className="h-7 w-7 object-contain"
+                    onError={(e) => {
+                      const el = e.currentTarget;
+                      if (site.favicon && el.src !== site.favicon) {
+                        el.src = site.favicon;
+                        return;
+                      }
+                      el.style.display = "none";
+                    }}
+                  />
+                ) : (
+                  <span className="type-heading-md text-ink">
+                    {hostname[0]?.toUpperCase() ?? "?"}
+                  </span>
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                {site.category ? (
+                  <p className="text-[12px] font-bold text-mute mb-0.5">
+                    {site.category}
+                  </p>
+                ) : null}
+                <h1 className="type-heading-lg text-ink leading-tight">
+                  {site.title}
+                </h1>
+              </div>
             </div>
-          </div>
 
-          <div className="space-y-6">
-            {site.category && (
-              <span className="pin-overlay-pill">{site.category}</span>
-            )}
-            <h1 className="type-heading-xl text-ink">{site.title}</h1>
+            <p className="type-body-sm text-mute inline-flex items-center gap-1.5">
+              <Globe className="h-3.5 w-3.5" />
+              {hostname}
+            </p>
+
             <p className="type-body-md text-body">
               {site.description || "No description available."}
             </p>
 
-            <div className="flex flex-wrap gap-2">
-              <a
-                href={site.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn-primary"
-              >
-                Visit site
-                <ArrowUpRight className="h-4 w-4" />
-              </a>
-              <div className="btn-secondary max-w-full truncate">
-                <Globe className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">{hostname}</span>
-              </div>
-            </div>
-
-            {site.tags && site.tags.length > 0 && (
+            {site.tags && site.tags.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {site.tags.map((tag) => (
                   <span key={tag} className="filter-chip">
@@ -200,61 +286,50 @@ function SiteInner() {
                   </span>
                 ))}
               </div>
-            )}
+            ) : null}
 
-            <div className="rounded-md bg-canvas border border-hairline p-5 space-y-4">
-              <div>
-                <p className="text-[12px] text-mute mb-1">Added</p>
-                <p className="type-body-sm text-ink inline-flex items-center gap-1.5">
-                  <Calendar className="h-3.5 w-3.5 text-mute" />
-                  {new Date(site.createdAt).toLocaleDateString(undefined, {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  })}
-                </p>
-              </div>
-              <div className="h-px bg-hairline" />
-              <div>
-                <p className="text-[12px] text-mute mb-1">Link</p>
-                <a
-                  href={site.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="type-body-sm text-ink-soft break-all hover:underline inline-flex items-start gap-1"
-                >
-                  {site.url}
-                  <ExternalLink className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                </a>
-              </div>
+            <div className="rounded-xl bg-surface-soft border border-hairline p-3.5 space-y-2">
+              <p className="type-body-sm text-ink inline-flex items-center gap-1.5">
+                <Calendar className="h-3.5 w-3.5 text-mute" />
+                Added{" "}
+                {new Date(site.createdAt).toLocaleDateString(undefined, {
+                  year: "numeric",
+                  month: "short",
+                  day: "numeric",
+                })}
+              </p>
+              <a
+                href={site.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="type-body-sm text-ink-soft break-all hover:underline inline-flex items-start gap-1"
+              >
+                {site.url}
+                <ExternalLink className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+              </a>
             </div>
 
-            <div className="rounded-md border border-hairline bg-canvas p-5">
-              <p className="text-[12px] font-bold text-destructive mb-3">
-                Danger zone
-              </p>
+            <div className="pt-1">
               {confirmDelete ? (
-                <div className="space-y-3">
-                  <p className="type-body-sm text-body">
-                    Remove this pin from your collection?
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="type-body-sm text-body w-full mb-1">
+                    Remove this pin?
                   </p>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={handleDelete}
-                      disabled={isDeleting}
-                      className="btn-primary flex-1 bg-destructive hover:bg-primary-pressed"
-                    >
-                      <Check className="h-3.5 w-3.5" />
-                      Yes, remove
-                    </button>
-                    <button
-                      onClick={() => setConfirmDelete(false)}
-                      className="btn-secondary flex-1"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                      Cancel
-                    </button>
-                  </div>
+                  <button
+                    onClick={handleDelete}
+                    disabled={isDeleting}
+                    className="btn-primary flex-1 bg-destructive hover:bg-primary-pressed"
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                    Yes, remove
+                  </button>
+                  <button
+                    onClick={() => setConfirmDelete(false)}
+                    className="btn-secondary flex-1"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                    Cancel
+                  </button>
                 </div>
               ) : (
                 <button
@@ -266,9 +341,59 @@ function SiteInner() {
                 </button>
               )}
             </div>
-          </div>
-        </div>
-      </section>
+          </article>
+
+          <section>
+            <h2 className="type-heading-md text-ink mb-1">Suggestions</h2>
+            <p className="type-body-sm text-mute mb-3">
+              More pins matching this category or tags.
+            </p>
+
+            {suggestions.length > 0 ? (
+              <div className="suggest-rail">
+                {suggestions.map((s) => (
+                  <SiteCard
+                    key={s.id}
+                    site={s}
+                    onDelete={handleDeleteSuggestion}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-hairline bg-canvas px-5 py-8 text-center">
+                <p className="type-body-sm text-mute">
+                  No related pins yet. Add more sites with similar tags.
+                </p>
+              </div>
+            )}
+          </section>
+        </main>
+      </div>
+
+      {/* Phone sticky bottom CTA */}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-hairline bg-canvas/95 backdrop-blur px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:hidden">
+        <a
+          href={site.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn-primary w-full h-12 text-[15px]"
+        >
+          Visit site
+          <ArrowUpRight className="h-4 w-4" />
+        </a>
+      </div>
+
+      <div className="hidden md:block mx-auto w-full max-w-xl px-4 pb-8">
+        <a
+          href={site.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn-primary"
+        >
+          Visit site
+          <ArrowUpRight className="h-4 w-4" />
+        </a>
+      </div>
     </div>
   );
 }

@@ -25,8 +25,6 @@ export async function GET(req: NextRequest) {
     }
 
     const db = getAdminDb();
-    // Sorting in memory keeps this a single-field query, so Firestore never
-    // asks for an ownerUid + createdAt composite index.
     const snap = await db
       .collection("sites")
       .where("ownerUid", "==", user.uid)

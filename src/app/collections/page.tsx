@@ -1,15 +1,50 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import { getSites, addSite, deleteSite, SavedSite, ApiError } from "@/lib/db";
+import { useState, useEffect, useMemo, useRef } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { getSites, addSite, deleteSite, getCategories, saveCategories, SavedSite, ApiError } from "@/lib/db";
 import { useAuth } from "@/lib/auth-context";
 import { useOnePassword } from "@/lib/one-password-context";
 import SubNav from "@/components/SubNav";
 import RequireAuth from "@/components/RequireAuth";
 import AddSiteDialog from "@/components/AddSiteDialog";
 import SiteCard from "@/components/SiteCard";
-import { Search, Layers, Loader2, X, Filter } from "lucide-react";
+import { PinGridSkeleton } from "@/components/SiteCardSkeleton";
+import { Search, Layers, X, Filter, Tag, Folder, Pencil } from "lucide-react";
 import { toast } from "sonner";
+
+type SearchSuggestion = {
+  key: string;
+  kind: "site" | "tag" | "category";
+  label: string;
+  sub?: string;
+  favicon?: string;
+  query: string;
+  siteId?: string;
+};
+
+function getHostname(url: string) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
+function highlightMatch(text: string, query: string) {
+  const q = query.trim();
+  if (!q) return text;
+  const idx = text.toLowerCase().indexOf(q.toLowerCase());
+  if (idx < 0) return text;
+  return (
+    <>
+      {text.slice(0, idx)}
+      <span className="font-bold text-ink">{text.slice(idx, idx + q.length)}</span>
+      {text.slice(idx + q.length)}
+    </>
+  );
+}
 
 export default function CollectionsPage() {
   return (
@@ -20,6 +55,7 @@ export default function CollectionsPage() {
 }
 
 function CollectionsInner() {
+  const router = useRouter();
   const { user, getIdToken } = useAuth();
   const { unlockToken, requireEditAccess } = useOnePassword();
   const [sites, setSites] = useState<SavedSite[]>([]);
@@ -29,6 +65,33 @@ function CollectionsInner() {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [suggestOpen, setSuggestOpen] = useState(false);
+  const [activeSuggest, setActiveSuggest] = useState(0);
+  const [slideBack, setSlideBack] = useState(false);
+  const [editingCategories, setEditingCategories] = useState(false);
+  const [draftCategoryRows, setDraftCategoryRows] = useState<
+    { key: string; original: string; name: string }[]
+  >([]);
+  const [managedCategories, setManagedCategories] = useState<string[]>([]);
+  const [savingCategories, setSavingCategories] = useState(false);
+  const searchWrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const applySlideBack = () => {
+      try {
+        if (sessionStorage.getItem("siteseen_slide_back") === "1") {
+          sessionStorage.removeItem("siteseen_slide_back");
+          setSlideBack(false);
+          requestAnimationFrame(() => setSlideBack(true));
+        }
+      } catch {
+        // ignore
+      }
+    };
+    applySlideBack();
+    window.addEventListener("pageshow", applySlideBack);
+    return () => window.removeEventListener("pageshow", applySlideBack);
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -37,8 +100,14 @@ function CollectionsInner() {
       setLoading(true);
       try {
         const token = await getIdToken();
-        const data = await getSites(token);
-        if (!cancelled) setSites(data);
+        const [data, cats] = await Promise.all([
+          getSites(token),
+          getCategories(token).catch(() => [] as string[]),
+        ]);
+        if (!cancelled) {
+          setSites(data);
+          setManagedCategories(cats);
+        }
       } catch (err) {
         console.error("Failed to load sites", err);
         toast.error("Failed to load sites from Firestore.");
@@ -53,9 +122,12 @@ function CollectionsInner() {
   }, [user, getIdToken]);
 
   const categories = useMemo(() => {
-    const set = new Set(sites.map((s) => s.category).filter(Boolean));
+    const set = new Set<string>([
+      ...managedCategories,
+      ...sites.map((s) => s.category).filter(Boolean),
+    ]);
     return ["All", ...Array.from(set).sort((a, b) => a.localeCompare(b))];
-  }, [sites]);
+  }, [sites, managedCategories]);
 
   const allTags = useMemo(() => {
     const counts = new Map<string, number>();
@@ -95,6 +167,108 @@ function CollectionsInner() {
       return matchesCategory && matchesTags && matchesSearch;
     });
   }, [sites, selectedCategory, selectedTags, searchQuery]);
+
+  const suggestions = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (q.length < 1) return [] as SearchSuggestion[];
+
+    const items: SearchSuggestion[] = [];
+    const seen = new Set<string>();
+
+    for (const site of sites) {
+      const host = getHostname(site.url);
+      const title = (site.title || "").trim() || host;
+      const hay = `${title} ${host} ${site.url} ${site.description || ""}`.toLowerCase();
+      if (!hay.includes(q)) continue;
+      const key = `site:${site.id}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      items.push({
+        key,
+        kind: "site",
+        label: title,
+        sub: host,
+        favicon: site.favicon,
+        query: title,
+        siteId: site.id,
+      });
+      if (items.length >= 6) break;
+    }
+
+    for (const cat of categories) {
+      if (cat === "All") continue;
+      if (!cat.toLowerCase().includes(q)) continue;
+      const key = `cat:${cat.toLowerCase()}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      items.push({
+        key,
+        kind: "category",
+        label: cat,
+        sub: "Category",
+        query: cat,
+      });
+    }
+
+    for (const { tag } of allTags) {
+      if (!tag.toLowerCase().includes(q)) continue;
+      const key = `tag:${tag.toLowerCase()}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      items.push({
+        key,
+        kind: "tag",
+        label: tag,
+        sub: "Tag",
+        query: tag,
+      });
+      if (items.filter((i) => i.kind === "tag").length >= 4) break;
+    }
+
+    return items.slice(0, 8);
+  }, [sites, searchQuery, categories, allTags]);
+
+  useEffect(() => {
+    setActiveSuggest(0);
+  }, [suggestions]);
+
+  useEffect(() => {
+    if (!suggestOpen) return;
+    const onPointer = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (searchWrapRef.current?.contains(target)) return;
+      setSuggestOpen(false);
+    };
+    document.addEventListener("mousedown", onPointer);
+    return () => document.removeEventListener("mousedown", onPointer);
+  }, [suggestOpen]);
+
+  const applySuggestion = (item: SearchSuggestion) => {
+    if (item.kind === "site" && item.siteId) {
+      setSearchQuery(item.query);
+      setSuggestOpen(false);
+      router.push(`/site/${item.siteId}`);
+      return;
+    }
+    if (item.kind === "category") {
+      setSelectedCategory(item.query);
+      setSearchQuery("");
+      setSuggestOpen(false);
+      return;
+    }
+    if (item.kind === "tag") {
+      setSelectedTags((prev) =>
+        prev.some((t) => t.toLowerCase() === item.query.toLowerCase())
+          ? prev
+          : [...prev, item.query]
+      );
+      setSearchQuery("");
+      setSuggestOpen(false);
+      return;
+    }
+    setSearchQuery(item.query);
+    setSuggestOpen(false);
+  };
 
   const toggleTag = (tag: string) => {
     setSelectedTags((prev) =>
@@ -160,6 +334,87 @@ function CollectionsInner() {
     }
   };
 
+  const startEditCategories = async () => {
+    // One Password once when entering edit — not on every rename/delete.
+    const ok = await requireEditAccess({ force: true });
+    if (!ok) return;
+    const list = categories.filter((c) => c !== "All");
+    setDraftCategoryRows(
+      list.map((c) => ({
+        key: `${c}-${Math.random().toString(36).slice(2, 8)}`,
+        original: c,
+        name: c,
+      }))
+    );
+    setEditingCategories(true);
+    toast.message("Category edit unlocked", {
+      description: "Rename or delete, then Save. No password until then.",
+    });
+  };
+
+  const cancelEditCategories = () => {
+    setEditingCategories(false);
+    setDraftCategoryRows([]);
+  };
+
+  const saveCategoryEdits = async () => {
+    const cleaned = draftCategoryRows
+      .map((r) => ({ ...r, name: r.name.trim() }))
+      .filter((r) => r.name);
+    if (cleaned.length === 0) {
+      toast.error("Keep at least one category.");
+      return;
+    }
+
+    const names = cleaned.map((r) => r.name);
+    const renames = cleaned
+      .filter((r) => r.original && r.original !== r.name)
+      .map((r) => ({ from: r.original, to: r.name }));
+    const keptOriginals = new Set(
+      cleaned.map((r) => r.original).filter(Boolean)
+    );
+    const source = categories.filter((c) => c !== "All");
+    const deletes = source.filter((c) => !keptOriginals.has(c));
+
+    setSavingCategories(true);
+    try {
+      const ok = await requireEditAccess();
+      if (!ok) return;
+      const token = await getIdToken();
+      const unlock =
+        unlockToken ||
+        (typeof window !== "undefined"
+          ? sessionStorage.getItem("siteseen_one_password_unlock")
+          : null);
+      const saved = await saveCategories(
+        { names, renames, deletes },
+        token,
+        unlock
+      );
+      setManagedCategories(saved);
+
+      // Refresh pins so renames/deletes show up
+      const refreshed = await getSites(token);
+      setSites(refreshed);
+
+      if (
+        selectedCategory !== "All" &&
+        !saved.some((c) => c.toLowerCase() === selectedCategory.toLowerCase())
+      ) {
+        setSelectedCategory("All");
+      }
+
+      setEditingCategories(false);
+      setDraftCategoryRows([]);
+      toast.success("Categories saved");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to save categories.");
+    } finally {
+      setSavingCategories(false);
+    }
+  };
+
   const FilterPanel = (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -175,25 +430,96 @@ function CollectionsInner() {
       </div>
 
       <div>
-        <p className="type-button-sm text-mute mb-3 uppercase tracking-wide">
-          Category
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {categories.map((cat) => {
-            const active =
-              (cat === "All" && selectedCategory === "All") ||
-              cat.toLowerCase() === selectedCategory.toLowerCase();
-            return (
-              <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
-                className={active ? "filter-chip-active" : "filter-chip"}
-              >
-                {cat}
-              </button>
-            );
-          })}
+        <div className="flex items-center justify-between mb-3 gap-2">
+          <p className="type-button-sm text-mute uppercase tracking-wide">
+            Category
+          </p>
+          {!editingCategories ? (
+            <button
+              type="button"
+              onClick={startEditCategories}
+              className="type-button-sm text-ink-soft hover:underline inline-flex items-center gap-1"
+            >
+              <Pencil className="h-3 w-3" />
+              Edit
+            </button>
+          ) : null}
         </div>
+
+        {editingCategories ? (
+          <div className="space-y-3">
+            <div className="space-y-2">
+              {draftCategoryRows.map((row) => (
+                <div key={row.key} className="flex items-center gap-2">
+                  <input
+                    value={row.name}
+                    onChange={(e) =>
+                      setDraftCategoryRows((prev) =>
+                        prev.map((r) =>
+                          r.key === row.key
+                            ? { ...r, name: e.target.value }
+                            : r
+                        )
+                      )
+                    }
+                    className="h-9 w-full rounded-md border border-hairline bg-canvas px-3 text-sm text-ink"
+                  />
+                  <button
+                    type="button"
+                    title={`Delete ${row.name}`}
+                    onClick={() =>
+                      setDraftCategoryRows((prev) =>
+                        prev.filter((r) => r.key !== row.key)
+                      )
+                    }
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-hairline bg-canvas text-destructive"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <p className="text-[11px] text-mute">
+              Deleted categories move pins to Uncategorized on Save.
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={cancelEditCategories}
+                disabled={savingCategories}
+                className="btn-secondary flex-1"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={saveCategoryEdits}
+                disabled={savingCategories}
+                className="btn-primary flex-1"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {categories.map((cat) => {
+              const active =
+                (cat === "All" && selectedCategory === "All") ||
+                cat.toLowerCase() === selectedCategory.toLowerCase();
+              return (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setSelectedCategory(cat)}
+                  className={active ? "filter-chip-active" : "filter-chip"}
+                >
+                  {cat}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {allTags.length > 0 && (
@@ -228,7 +554,11 @@ function CollectionsInner() {
   );
 
   return (
-    <div className="min-h-screen flex flex-col bg-surface-soft text-body">
+    <div
+      className={`min-h-screen flex flex-col bg-surface-soft text-body ${
+        slideBack ? "page-slide-back-in" : ""
+      }`}
+    >
       <SubNav
         onAddSiteClick={async () => {
           const ok = await requireEditAccess();
@@ -244,15 +574,89 @@ function CollectionsInner() {
               Browse every curated site. Filter by category and tags.
             </p>
 
-            <div className="relative max-w-xl">
-              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-mute" />
+            <div className="relative max-w-xl" ref={searchWrapRef}>
+              <Search className="pointer-events-none absolute left-4 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-mute" />
               <input
                 type="text"
                 placeholder="Search title, URL, tags..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setSuggestOpen(true);
+                }}
+                onFocus={() => setSuggestOpen(true)}
+                onKeyDown={(e) => {
+                  if (!suggestOpen || suggestions.length === 0) return;
+                  if (e.key === "ArrowDown") {
+                    e.preventDefault();
+                    setActiveSuggest((i) => (i + 1) % suggestions.length);
+                  } else if (e.key === "ArrowUp") {
+                    e.preventDefault();
+                    setActiveSuggest(
+                      (i) => (i - 1 + suggestions.length) % suggestions.length
+                    );
+                  } else if (e.key === "Enter") {
+                    e.preventDefault();
+                    applySuggestion(suggestions[activeSuggest]);
+                  } else if (e.key === "Escape") {
+                    setSuggestOpen(false);
+                  }
+                }}
                 className="search-pill pl-11"
+                autoComplete="off"
+                role="combobox"
+                aria-expanded={suggestOpen && suggestions.length > 0}
+                aria-autocomplete="list"
               />
+
+              {suggestOpen && suggestions.length > 0 && (
+                <ul
+                  className="absolute left-0 right-0 top-[calc(100%+6px)] z-30 overflow-hidden rounded-md border border-hairline bg-canvas shadow-modal"
+                  role="listbox"
+                >
+                  {suggestions.map((item, index) => (
+                    <li key={item.key} role="option" aria-selected={index === activeSuggest}>
+                      <button
+                        type="button"
+                        onMouseEnter={() => setActiveSuggest(index)}
+                        onClick={() => applySuggestion(item)}
+                        className={`flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors ${
+                          index === activeSuggest
+                            ? "bg-surface-card"
+                            : "hover:bg-surface-card"
+                        }`}
+                      >
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary overflow-hidden">
+                          {item.kind === "site" && item.favicon ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={item.favicon}
+                              alt=""
+                              className="h-5 w-5 object-contain"
+                            />
+                          ) : item.kind === "tag" ? (
+                            <Tag className="h-3.5 w-3.5 text-mute" />
+                          ) : item.kind === "category" ? (
+                            <Folder className="h-3.5 w-3.5 text-mute" />
+                          ) : (
+                            <Search className="h-3.5 w-3.5 text-mute" />
+                          )}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate type-body-sm text-body">
+                            {highlightMatch(item.label, searchQuery)}
+                          </span>
+                          {item.sub ? (
+                            <span className="block truncate text-[12px] text-mute">
+                              {item.sub}
+                            </span>
+                          ) : null}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
 
             {hasActiveFilters && (
@@ -304,9 +708,7 @@ function CollectionsInner() {
               </p>
 
               {loading ? (
-                <div className="flex justify-center py-24 text-mute">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                </div>
+                <PinGridSkeleton count={8} />
               ) : filteredSites.length > 0 ? (
                 <div className="pin-masonry">
                   {filteredSites.map((site) => (
@@ -345,10 +747,32 @@ function CollectionsInner() {
         </section>
       </main>
 
+      <footer className="mt-auto bg-canvas border-t border-hairline py-8">
+        <div className="mx-auto max-w-content px-4 md:px-6 flex flex-col sm:flex-row sm:justify-between gap-2 text-[12px] text-mute">
+          <p>© 2026 SiteSeen · Arigato Labs</p>
+          <Link href="/explore" className="hover:text-ink transition-colors">
+            Explore Arigato Labs
+          </Link>
+        </div>
+      </footer>
+
       <AddSiteDialog
         isOpen={isAddDialogOpen}
         onClose={() => setIsAddDialogOpen(false)}
         onSave={handleSaveSite}
+        onCategoriesChanged={async () => {
+          try {
+            const token = await getIdToken();
+            const [cats, data] = await Promise.all([
+              getCategories(token),
+              getSites(token),
+            ]);
+            setManagedCategories(cats);
+            setSites(data);
+          } catch {
+            // ignore
+          }
+        }}
       />
     </div>
   );

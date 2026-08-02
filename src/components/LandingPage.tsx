@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 import { useAuth } from "@/lib/auth-context";
+import SiteSeenMark from "@/components/SiteSeenMark";
 import {
   Loader2,
   LogIn,
@@ -23,10 +24,27 @@ export default function LandingPage() {
   const isDark = mounted && (resolvedTheme === "dark" || theme === "dark");
   const toggleTheme = () => setTheme(isDark ? "light" : "dark");
 
+  if (loading) {
+    return (
+      <div
+        className="min-h-screen flex flex-col items-center justify-center gap-4 bg-surface-soft"
+        role="status"
+        aria-label="Loading"
+      >
+        <div className="relative flex h-16 w-16 items-center justify-center">
+          <span className="absolute inset-0 rounded-2xl bg-secondary animate-pulse" />
+          <SiteSeenMark size={40} className="relative z-10 rounded-xl" />
+        </div>
+        <p className="text-[13px] text-mute">Loading SiteSeen...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-surface-soft text-body">
       <header className="h-16 flex items-center justify-between px-5 md:px-8 bg-canvas border-b border-hairline">
-        <span className="type-body-strong text-[20px] text-primary select-none">
+        <span className="inline-flex items-center gap-2 type-body-strong text-[20px] text-primary select-none">
+          <SiteSeenMark size={28} className="rounded-md" />
           SiteSeen
         </span>
         <div className="flex items-center gap-2">
@@ -53,6 +71,7 @@ export default function LandingPage() {
       </header>
 
       <main className="flex-grow flex flex-col items-center justify-center px-5 py-section text-center">
+        <SiteSeenMark size={72} className="rounded-2xl mb-8 shadow-sm" />
         <h1 className="type-display-xl text-ink max-w-[780px] mb-6">
           Create the collection you love
         </h1>

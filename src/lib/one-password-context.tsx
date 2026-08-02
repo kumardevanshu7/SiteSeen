@@ -24,7 +24,7 @@ interface OnePasswordContextValue {
   gateOpen: boolean;
   gateMode: GateMode;
   refreshStatus: () => Promise<{ configured: boolean; question: string | null }>;
-  requireEditAccess: () => Promise<boolean>;
+  requireEditAccess: (opts?: { force?: boolean }) => Promise<boolean>;
   completeGate: (token: string) => void;
   closeGate: () => void;
   openGate: (mode?: GateMode) => void;
@@ -109,29 +109,39 @@ export function OnePasswordProvider({ children }: { children: ReactNode }) {
     refreshStatus();
   }, [user, refreshStatus]);
 
-  const requireEditAccess = useCallback(async () => {
-    if (!user) {
-      await signInWithGoogle();
-      return false;
-    }
+  const requireEditAccess = useCallback(
+    async (opts?: { force?: boolean }) => {
+      if (!user) {
+        await signInWithGoogle();
+        return false;
+      }
 
-    const status = await refreshStatus();
-    const existing =
-      unlockToken ||
-      (typeof window !== "undefined" ? sessionStorage.getItem(UNLOCK_KEY) : null);
+      const status = await refreshStatus();
 
-    if (status.configured && existing) {
-      setUnlockTokenState(existing);
-      return true;
-    }
+      if (!opts?.force) {
+        const existing =
+          unlockToken ||
+          (typeof window !== "undefined"
+            ? sessionStorage.getItem(UNLOCK_KEY)
+            : null);
+        if (status.configured && existing) {
+          setUnlockTokenState(existing);
+          return true;
+        }
+      } else {
+        // Delete/sensitive actions always re-ask
+        setUnlockToken(null);
+      }
 
-    setGateMode(status.configured ? "unlock" : "setup");
-    setGateOpen(true);
+      setGateMode(status.configured ? "unlock" : "setup");
+      setGateOpen(true);
 
-    return new Promise<boolean>((resolve) => {
-      resolveRef.current = resolve;
-    });
-  }, [user, signInWithGoogle, refreshStatus, unlockToken]);
+      return new Promise<boolean>((resolve) => {
+        resolveRef.current = resolve;
+      });
+    },
+    [user, signInWithGoogle, refreshStatus, unlockToken, setUnlockToken]
+  );
 
   return (
     <OnePasswordContext.Provider

@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { SavedSite } from "@/lib/db";
-import { ArrowUpRight, Trash2, Check, X, ExternalLink } from "lucide-react";
+import { useOnePassword } from "@/lib/one-password-context";
+import { ArrowUpRight, Trash2, Check, X } from "lucide-react";
 import { toast } from "sonner";
 
 interface SiteCardProps {
@@ -11,26 +12,44 @@ interface SiteCardProps {
   onDelete: (id: string) => Promise<void>;
 }
 
+function getHostname(url: string) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
 export default function SiteCard({ site, onDelete }: SiteCardProps) {
   const router = useRouter();
+  const { requireEditAccess } = useOnePassword();
   const [isDeleting, setIsDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [imgFailed, setImgFailed] = useState(false);
 
-  const hostname = (() => {
-    try {
-      return new URL(site.url).hostname;
-    } catch {
-      return site.url;
-    }
-  })();
+  const hostname = getHostname(site.url);
+  const title = (site.title || "").trim() || hostname;
+  const showHost =
+    title.toLowerCase() !== hostname.toLowerCase() &&
+    title.toLowerCase() !== `www.${hostname}`.toLowerCase();
+  const hasImage = Boolean(site.imageUrl) && !imgFailed;
 
   const handleCardClick = () => {
+    try {
+      sessionStorage.removeItem("siteseen_slide_back");
+      sessionStorage.setItem(`siteseen_site_${site.id}`, JSON.stringify(site));
+    } catch {
+      // ignore quota
+    }
+    router.prefetch(`/site/${site.id}`);
     router.push(`/site/${site.id}`);
   };
 
-  const handleDeleteClick = (e: React.MouseEvent) => {
+  const handleDeleteClick = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    const ok = await requireEditAccess({ force: true });
+    if (!ok) return;
     setConfirmDelete(true);
   };
 
@@ -56,60 +75,56 @@ export default function SiteCard({ site, onDelete }: SiteCardProps) {
 
   return (
     <article
-      className="group relative cursor-pointer select-none overflow-hidden rounded-md bg-surface-card"
+      className="group cursor-pointer select-none"
       onClick={handleCardClick}
+      onPointerEnter={() => router.prefetch(`/site/${site.id}`)}
     >
-      {/* Full-bleed pin image — no padding */}
-      <div className="relative w-full overflow-hidden bg-surface-card">
-        {site.imageUrl ? (
+      <div className="relative aspect-square overflow-hidden rounded-md border border-hairline bg-surface-card">
+        {hasImage ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={site.imageUrl}
-            alt={site.title}
-            className="block w-full h-auto object-cover"
-            onError={(e) => {
-              (e.target as HTMLElement).style.display = "none";
-            }}
+            alt={title}
+            className="absolute inset-0 h-full w-full object-contain p-6"
+            onError={() => setImgFailed(true)}
           />
         ) : (
-          <div className="flex aspect-[3/4] flex-col items-center justify-center gap-3 p-6 text-center">
+          <div className="absolute inset-0 flex items-center justify-center">
             {site.favicon ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={site.favicon}
                 alt=""
-                className="h-10 w-10 rounded-full object-contain"
+                className="h-14 w-14 rounded-xl bg-canvas object-contain p-2 shadow-sm"
                 onError={(e) => {
                   (e.target as HTMLElement).style.display = "none";
                 }}
               />
             ) : (
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-canvas type-heading-md text-ink">
+              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-canvas type-heading-md text-ink shadow-sm">
                 {hostname[0]?.toUpperCase() ?? "?"}
               </div>
             )}
-            <ExternalLink className="h-4 w-4 text-ash" />
           </div>
         )}
 
-        {/* Category overlay pill */}
-        {site.category && (
-          <span className="pin-overlay-pill absolute left-3 top-3 shadow-sm">
+        {site.category ? (
+          <span className="pin-overlay-pill absolute left-2.5 top-2.5 shadow-sm">
             {site.category}
           </span>
-        )}
+        ) : null}
 
-        {/* Hover actions */}
         <div
-          className="absolute inset-0 bg-ink/0 transition-colors group-hover:bg-ink/10"
+          className="pointer-events-none absolute inset-0 transition-colors group-hover:bg-ink/5"
           aria-hidden
         />
+
         <div
-          className="absolute right-3 top-3 flex gap-2 opacity-0 transition-opacity group-hover:opacity-100"
+          className="absolute right-2.5 top-2.5 flex gap-1.5 opacity-0 transition-opacity group-hover:opacity-100"
           onClick={(e) => e.stopPropagation()}
         >
           {confirmDelete ? (
-            <div className="flex items-center gap-1 rounded-full bg-canvas px-2 py-1.5 shadow-modal">
+            <div className="flex items-center gap-1 rounded-full bg-canvas px-1.5 py-1 shadow-modal">
               <button
                 onClick={handleConfirmDelete}
                 disabled={isDeleting}
@@ -131,32 +146,31 @@ export default function SiteCard({ site, onDelete }: SiteCardProps) {
               <button
                 onClick={handleDeleteClick}
                 disabled={isDeleting}
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-canvas text-ink shadow-sm"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-canvas text-ink shadow-sm"
                 title="Remove"
               >
-                <Trash2 className="h-4 w-4" />
+                <Trash2 className="h-3.5 w-3.5" />
               </button>
               <a
                 href={site.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-canvas text-ink shadow-sm"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-canvas text-ink shadow-sm"
                 title="Visit"
                 onClick={(e) => e.stopPropagation()}
               >
-                <ArrowUpRight className="h-4 w-4" />
+                <ArrowUpRight className="h-3.5 w-3.5" />
               </a>
             </>
           )}
         </div>
       </div>
 
-      {/* Meta under pin */}
-      <div className="px-1 pt-2 pb-3">
-        <h3 className="type-body-sm font-bold text-ink line-clamp-2 leading-snug">
-          {site.title}
-        </h3>
-        <p className="mt-1 text-[12px] text-mute truncate">{hostname}</p>
+      <div className="px-0.5 pt-2 h-12">
+        <h3 className="truncate type-body-sm font-bold text-ink">{title}</h3>
+        <p className="truncate text-[12px] text-mute">
+          {showHost ? hostname : "\u00A0"}
+        </p>
       </div>
     </article>
   );

@@ -3,7 +3,7 @@
 import { useEffect, ReactNode } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
-import { Loader2 } from "lucide-react";
+import { BrandLoader } from "@/components/SiteSeenMark";
 
 const PUBLIC_PATHS = ["/"];
 
@@ -22,19 +22,11 @@ export default function RequireAuth({ children }: { children: ReactNode }) {
   }, [user, loading, isPublic, router]);
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-canvas">
-        <Loader2 className="h-7 w-7 animate-spin text-primary" />
-      </div>
-    );
+    return <BrandLoader label="Loading SiteSeen..." />;
   }
 
   if (!user && !isPublic) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-canvas">
-        <Loader2 className="h-7 w-7 animate-spin text-primary" />
-      </div>
-    );
+    return <BrandLoader label="Redirecting..." />;
   }
 
   return <>{children}</>;

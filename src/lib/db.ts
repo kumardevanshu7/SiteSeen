@@ -107,3 +107,34 @@ export async function updateSite(
   });
   await throwIfBad(res);
 }
+
+export async function getCategories(
+  googleToken?: string | null
+): Promise<string[]> {
+  const res = await fetch("/api/categories", {
+    cache: "no-store",
+    headers: authHeaders(googleToken),
+  });
+  await throwIfBad(res);
+  const data = await res.json();
+  return (data.categories as string[]) || [];
+}
+
+export async function saveCategories(
+  payload: {
+    names: string[];
+    renames?: { from: string; to: string }[];
+    deletes?: string[];
+  },
+  googleToken?: string | null,
+  unlockToken?: string | null
+): Promise<string[]> {
+  const res = await fetch("/api/categories", {
+    method: "PUT",
+    headers: authHeaders(googleToken, unlockToken, true),
+    body: JSON.stringify(payload),
+  });
+  await throwIfBad(res);
+  const data = await res.json();
+  return (data.categories as string[]) || [];
+}

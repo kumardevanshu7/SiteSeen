@@ -2,14 +2,15 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { getSites, addSite, SavedSite } from "@/lib/db";
+import { getSites, addSite, deleteSite, SavedSite } from "@/lib/db";
 import { useAuth } from "@/lib/auth-context";
 import { useOnePassword } from "@/lib/one-password-context";
 import SubNav from "@/components/SubNav";
 import LandingPage from "@/components/LandingPage";
 import AddSiteDialog from "@/components/AddSiteDialog";
 import SiteCard from "@/components/SiteCard";
-import { ChevronRight, Loader2 } from "lucide-react";
+import { PinGridSkeleton } from "@/components/SiteCardSkeleton";
+import { ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
 export default function Home() {
@@ -78,6 +79,19 @@ export default function Home() {
     if (ok) setIsAddDialogOpen(true);
   };
 
+  const handleDeleteSite = async (id: string) => {
+    const ok = await requireEditAccess();
+    if (!ok) throw new Error("Edit access required");
+    const token = await getIdToken();
+    const unlock =
+      unlockToken ||
+      (typeof window !== "undefined"
+        ? sessionStorage.getItem("siteseen_one_password_unlock")
+        : null);
+    await deleteSite(id, token, unlock);
+    setSites((prev) => prev.filter((site) => site.id !== id));
+  };
+
   const previewSites = sites.slice(0, 8);
 
   return (
@@ -118,18 +132,14 @@ export default function Home() {
           </div>
 
           {loading ? (
-            <div className="flex justify-center py-16 text-mute">
-              <Loader2 className="h-7 w-7 animate-spin text-primary" />
-            </div>
+            <PinGridSkeleton count={8} />
           ) : previewSites.length > 0 ? (
             <div className="pin-masonry">
               {previewSites.map((site) => (
                 <SiteCard
                   key={site.id}
                   site={site}
-                  onDelete={async () => {
-                    toast.message("Manage deletes from Explore");
-                  }}
+                  onDelete={handleDeleteSite}
                 />
               ))}
             </div>
@@ -159,8 +169,10 @@ export default function Home() {
 
       <footer className="bg-canvas border-t border-hairline py-8">
         <div className="mx-auto max-w-content px-4 md:px-6 flex flex-col sm:flex-row sm:justify-between gap-2 text-[12px] text-mute">
-          <p>© 2026 SiteSeen. All rights reserved.</p>
-          <p>Powered by Firestore</p>
+          <p>© 2026 SiteSeen · Arigato Labs</p>
+          <Link href="/explore" className="hover:text-ink transition-colors">
+            Explore Arigato Labs
+          </Link>
         </div>
       </footer>
 
