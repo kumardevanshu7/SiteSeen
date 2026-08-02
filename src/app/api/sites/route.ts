@@ -37,7 +37,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ sites });
   } catch (error) {
     console.error("GET /api/sites failed:", error);
-    return NextResponse.json({ error: "Failed to fetch sites" }, { status: 500 });
+    const detail = error instanceof Error ? error.message : String(error);
+    return NextResponse.json(
+      { error: "Failed to fetch sites", detail },
+      { status: 500 }
+    );
   }
 }
 

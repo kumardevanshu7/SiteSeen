@@ -9,11 +9,35 @@ let adminApp: App | undefined;
 /** Google service-account JSON (snake_case) or Admin SDK camelCase fields. */
 type AdminCredentialInput = Record<string, string>;
 
+function normalizeAccount(raw: AdminCredentialInput): AdminCredentialInput {
+  let privateKey = String(raw.private_key || raw.privateKey || "");
+  // Vercel sometimes stores literal \n; cert() needs real newlines.
+  privateKey = privateKey.replace(/\\n/g, "\n");
+  return {
+    projectId: String(raw.project_id || raw.projectId || ""),
+    clientEmail: String(raw.client_email || raw.clientEmail || ""),
+    privateKey,
+  };
+}
+
 function fromEnvJson(): AdminCredentialInput | null {
-  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-  if (!raw?.trim()) return null;
+  const envVal = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  if (!envVal?.trim()) return null;
   try {
-    return JSON.parse(raw) as AdminCredentialInput;
+    let value: unknown = envVal.trim();
+    // Accidental whole-value quotes around the JSON
+    if (
+      typeof value === "string" &&
+      ((value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'")))
+    ) {
+      value = JSON.parse(value);
+    }
+    const parsed =
+      typeof value === "string"
+        ? (JSON.parse(value) as AdminCredentialInput)
+        : (value as AdminCredentialInput);
+    return normalizeAccount(parsed);
   } catch (error) {
     console.error("Invalid FIREBASE_SERVICE_ACCOUNT_JSON:", error);
     return null;
@@ -27,20 +51,20 @@ function fromEnvFields(): AdminCredentialInput | null {
 
   if (!projectId || !clientEmail || !privateKey) return null;
 
-  privateKey = privateKey.replace(/\\n/g, "\n");
-
-  return {
+  return normalizeAccount({
     projectId,
     clientEmail,
     privateKey,
-  };
+  });
 }
 
 function fromLocalFile(): AdminCredentialInput | null {
   const keyPath = join(process.cwd(), "scripts", "serviceAccountKey.json");
   if (!existsSync(keyPath)) return null;
   try {
-    return JSON.parse(readFileSync(keyPath, "utf-8")) as AdminCredentialInput;
+    return normalizeAccount(
+      JSON.parse(readFileSync(keyPath, "utf-8")) as AdminCredentialInput
+    );
   } catch (error) {
     console.error("Failed to read scripts/serviceAccountKey.json:", error);
     return null;
@@ -52,6 +76,11 @@ function getServiceAccount(): AdminCredentialInput {
   if (!account) {
     throw new Error(
       "Firebase Admin credentials missing. Set FIREBASE_SERVICE_ACCOUNT_JSON (or ADMIN fields) in env, or place scripts/serviceAccountKey.json locally."
+    );
+  }
+  if (!account.privateKey || !account.clientEmail) {
+    throw new Error(
+      "Firebase Admin credentials incomplete — need client_email and private_key. Check FIREBASE_SERVICE_ACCOUNT_JSON on Vercel."
     );
   }
   return account;

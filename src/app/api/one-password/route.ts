@@ -39,7 +39,11 @@ export async function GET(req: NextRequest) {
     });
   } catch (error) {
     console.error("GET /api/one-password failed:", error);
-    return NextResponse.json({ error: "Failed to load status" }, { status: 500 });
+    const detail = error instanceof Error ? error.message : String(error);
+    return NextResponse.json(
+      { error: "Failed to load status", detail },
+      { status: 500 }
+    );
   }
 }
 
@@ -100,7 +104,11 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error("POST /api/one-password failed:", error);
-    return NextResponse.json({ error: "Failed to set up One Password" }, { status: 500 });
+    const detail = error instanceof Error ? error.message : String(error);
+    return NextResponse.json(
+      { error: "Failed to set up One Password", detail },
+      { status: 500 }
+    );
   }
 }
 
