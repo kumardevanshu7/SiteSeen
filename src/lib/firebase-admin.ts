@@ -11,7 +11,14 @@ type AdminCredentialInput = Record<string, string>;
 
 function normalizeAccount(raw: AdminCredentialInput): AdminCredentialInput {
   let privateKey = String(raw.private_key || raw.privateKey || "");
-  // Vercel sometimes stores literal \n; cert() needs real newlines.
+  // Strip accidental wrapping quotes from Vercel env paste
+  if (
+    (privateKey.startsWith('"') && privateKey.endsWith('"')) ||
+    (privateKey.startsWith("'") && privateKey.endsWith("'"))
+  ) {
+    privateKey = privateKey.slice(1, -1);
+  }
+  // Vercel often stores literal \n; cert() needs real newlines.
   privateKey = privateKey.replace(/\\n/g, "\n");
   return {
     projectId: String(raw.project_id || raw.projectId || ""),
@@ -72,15 +79,16 @@ function fromLocalFile(): AdminCredentialInput | null {
 }
 
 function getServiceAccount(): AdminCredentialInput {
-  const account = fromEnvJson() || fromEnvFields() || fromLocalFile();
+  // Prefer split env fields — more reliable on Vercel than a giant JSON blob.
+  const account = fromEnvFields() || fromEnvJson() || fromLocalFile();
   if (!account) {
     throw new Error(
-      "Firebase Admin credentials missing. Set FIREBASE_SERVICE_ACCOUNT_JSON (or ADMIN fields) in env, or place scripts/serviceAccountKey.json locally."
+      "Firebase Admin credentials missing. Set FIREBASE_ADMIN_PROJECT_ID + CLIENT_EMAIL + PRIVATE_KEY (or FIREBASE_SERVICE_ACCOUNT_JSON)."
     );
   }
-  if (!account.privateKey || !account.clientEmail) {
+  if (!account.privateKey?.includes("BEGIN") || !account.clientEmail) {
     throw new Error(
-      "Firebase Admin credentials incomplete — need client_email and private_key. Check FIREBASE_SERVICE_ACCOUNT_JSON on Vercel."
+      "Firebase Admin credentials incomplete — private_key must include BEGIN PRIVATE KEY. Prefer FIREBASE_ADMIN_* split env vars on Vercel."
     );
   }
   return account;
