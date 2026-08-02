@@ -122,11 +122,11 @@ export default function OnePasswordGate() {
                 <ShieldCheck className="h-4 w-4 text-primary" />
               )}
             </div>
-            <DialogTitle className="text-lg tracking-apple-tight">
+            <DialogTitle className="type-heading-lg text-ink">
               One Password
             </DialogTitle>
           </div>
-          <DialogDescription className="text-sm text-ink-muted-80 dark:text-body-muted">
+          <DialogDescription className="type-body-md text-mute">
             {gateMode === "setup"
               ? "Set one security question and answer to protect edits. No PIN or pattern — just Q&A."
               : "Answer your security question to unlock editing for this session."}
@@ -144,6 +144,7 @@ export default function OnePasswordGate() {
                   value={setupQuestion}
                   onChange={(e) => setSetupQuestion(e.target.value)}
                   maxLength={200}
+                  className="h-11 rounded-md"
                 />
               </div>
               <div className="space-y-2">
@@ -156,6 +157,7 @@ export default function OnePasswordGate() {
                   value={answer}
                   onChange={(e) => setAnswer(e.target.value)}
                   maxLength={120}
+                  className="h-11 rounded-md"
                 />
               </div>
               <div className="space-y-2">
@@ -168,19 +170,16 @@ export default function OnePasswordGate() {
                   value={confirmAnswer}
                   onChange={(e) => setConfirmAnswer(e.target.value)}
                   maxLength={120}
+                  className="h-11 rounded-md"
                   onKeyDown={(e) => e.key === "Enter" && handleSetup()}
                 />
               </div>
             </>
           ) : (
             <>
-              <div className="rounded-md bg-canvas-parchment dark:bg-surface-tile-3 border border-hairline dark:border-white/10 px-3 py-3">
-                <p className="text-[11px] uppercase tracking-wider text-ink/45 dark:text-white/40 mb-1 font-semibold">
-                  Your question
-                </p>
-                <p className="text-sm text-ink dark:text-white font-medium">
-                  {question || "—"}
-                </p>
+              <div className="rounded-md bg-surface-card px-4 py-3">
+                <p className="text-[12px] text-mute mb-1">Your question</p>
+                <p className="type-body-strong text-ink">{question || "—"}</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="op-unlock">Answer</Label>
@@ -192,6 +191,7 @@ export default function OnePasswordGate() {
                   value={answer}
                   onChange={(e) => setAnswer(e.target.value)}
                   maxLength={120}
+                  className="h-11 rounded-md"
                   onKeyDown={(e) => e.key === "Enter" && handleUnlock()}
                   autoFocus
                 />
@@ -204,7 +204,7 @@ export default function OnePasswordGate() {
           <Link
             href="/settings"
             onClick={handleClose}
-            className="text-[11px] text-ink/50 dark:text-white/45 hover:underline order-2 sm:order-1"
+            className="text-[12px] text-mute hover:text-ink-soft order-2 sm:order-1"
           >
             Manage in Settings
           </Link>
@@ -212,7 +212,7 @@ export default function OnePasswordGate() {
             <button
               type="button"
               onClick={handleClose}
-              className="px-4 py-2 text-xs rounded-pill border border-hairline dark:border-white/15"
+              className="btn-secondary"
               disabled={busy}
             >
               Cancel
@@ -221,7 +221,7 @@ export default function OnePasswordGate() {
               type="button"
               onClick={gateMode === "setup" ? handleSetup : handleUnlock}
               disabled={busy}
-              className="px-4 py-2 text-xs rounded-pill bg-primary text-white hover:bg-primary-focus disabled:opacity-60 flex items-center gap-1.5"
+              className="btn-primary"
             >
               {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
               {gateMode === "setup" ? "Create & Unlock" : "Unlock"}

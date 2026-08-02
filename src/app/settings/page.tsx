@@ -162,73 +162,62 @@ function SettingsInner() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-canvas text-ink transition-colors">
+    <div className="min-h-screen flex flex-col bg-surface-soft text-body">
       <SubNav onAddSiteClick={handleAddClick} />
 
       <main className="flex-grow">
-        <section className="border-b border-border/40">
+        <section className="bg-canvas border-b border-hairline">
           <div className="mx-auto max-w-[720px] px-4 md:px-6 py-8 md:py-10">
             <Link
               href="/collections"
-              className="inline-flex items-center gap-1.5 text-xs text-ink/55 dark:text-white/50 hover:text-ink dark:hover:text-white mb-6"
+              className="inline-flex items-center gap-1.5 type-body-sm text-mute hover:text-ink mb-6"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
-              Back
+              Back to Explore
             </Link>
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-primary dark:text-primary-on-dark mb-2">
-              Manage
-            </p>
-            <h1 className="text-3xl font-bold tracking-apple-display text-ink dark:text-white">
-              Settings
-            </h1>
-            <p className="mt-2 text-sm text-ink-muted-80 dark:text-body-muted">
+            <h1 className="type-heading-xl text-ink">Settings</h1>
+            <p className="mt-2 type-body-md text-mute">
               Security and account controls for SiteSeen.
             </p>
           </div>
         </section>
 
-        <section className="mx-auto max-w-[720px] px-4 md:px-6 py-10 space-y-8">
-          {/* One Password card */}
-          <div className="border border-hairline dark:border-white/10 rounded-lg bg-canvas dark:bg-surface-tile-2 overflow-hidden">
-            <div className="px-5 py-4 border-b border-hairline dark:border-white/10 flex items-start justify-between gap-4">
+        <section className="mx-auto max-w-[720px] px-4 md:px-6 py-10 space-y-6">
+          <div className="rounded-md bg-canvas overflow-hidden border border-hairline">
+            <div className="px-6 py-5 border-b border-hairline flex items-start justify-between gap-4">
               <div className="flex items-start gap-3">
-                <div className="mt-0.5 h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                  <ShieldCheck className="h-4 w-4 text-primary" />
+                <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-full bg-surface-card shrink-0">
+                  <ShieldCheck className="h-4 w-4 text-ink" />
                 </div>
                 <div>
-                  <h2 className="text-base font-semibold tracking-apple-tight">
-                    One Password
-                  </h2>
-                  <p className="text-xs text-ink/55 dark:text-white/50 mt-0.5 leading-relaxed">
-                    Single security question + answer. Required before any edit
-                    (add, update, delete). No PIN, no pattern.
+                  <h2 className="type-heading-md text-ink">One Password</h2>
+                  <p className="type-body-sm text-mute mt-1">
+                    Single security question + answer. Required before any edit.
                   </p>
                 </div>
               </div>
               <span
-                className={`shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-pill text-[10px] font-semibold uppercase tracking-wider ${
-                  unlocked
-                    ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                    : "bg-ink/5 dark:bg-white/10 text-ink/55 dark:text-white/50"
+                className={`shrink-0 pin-overlay-pill ${
+                  unlocked ? "bg-success-pale text-success-deep" : ""
                 }`}
               >
                 {unlocked ? (
                   <>
-                    <Unlock className="h-3 w-3" /> Session unlocked
+                    <Unlock className="h-3 w-3 mr-1 inline" /> Unlocked
                   </>
                 ) : (
                   <>
-                    <Lock className="h-3 w-3" /> Locked
+                    <Lock className="h-3 w-3 mr-1 inline" /> Locked
                   </>
                 )}
               </span>
             </div>
 
-            <div className="px-5 py-5">
+            <div className="px-6 py-6">
               {mode === "setup" ? (
                 <div className="space-y-4 max-w-md">
-                  <div className="flex items-center gap-2 text-sm font-medium mb-1">
-                    <KeyRound className="h-4 w-4 text-primary" />
+                  <div className="flex items-center gap-2 type-body-strong text-ink mb-1">
+                    <KeyRound className="h-4 w-4" />
                     First-time setup
                   </div>
                   <div className="space-y-2">
@@ -238,6 +227,7 @@ function SettingsInner() {
                       value={setupQuestion}
                       onChange={(e) => setSetupQuestion(e.target.value)}
                       maxLength={200}
+                      className="h-11 rounded-md"
                     />
                   </div>
                   <div className="space-y-2">
@@ -248,6 +238,7 @@ function SettingsInner() {
                       value={answer}
                       onChange={(e) => setAnswer(e.target.value)}
                       maxLength={120}
+                      className="h-11 rounded-md"
                     />
                   </div>
                   <div className="space-y-2">
@@ -258,12 +249,13 @@ function SettingsInner() {
                       value={confirmAnswer}
                       onChange={(e) => setConfirmAnswer(e.target.value)}
                       maxLength={120}
+                      className="h-11 rounded-md"
                     />
                   </div>
                   <button
                     onClick={handleSetup}
                     disabled={busy}
-                    className="px-4 py-2 bg-primary text-white text-xs rounded-pill hover:bg-primary-focus disabled:opacity-60 flex items-center gap-1.5"
+                    className="btn-primary"
                   >
                     {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                     Save One Password
@@ -271,15 +263,12 @@ function SettingsInner() {
                 </div>
               ) : mode === "change" ? (
                 <div className="space-y-4 max-w-md">
-                  <p className="text-xs text-ink/55 dark:text-white/50">
-                    Enter your current answer, then set a new question and
-                    answer.
+                  <p className="type-body-sm text-mute">
+                    Enter your current answer, then set a new question and answer.
                   </p>
-                  <div className="rounded-md bg-canvas-parchment dark:bg-surface-tile-3 border border-hairline dark:border-white/10 px-3 py-3">
-                    <p className="text-[11px] uppercase tracking-wider text-ink/45 mb-1">
-                      Current question
-                    </p>
-                    <p className="text-sm font-medium">{question}</p>
+                  <div className="rounded-md bg-surface-card px-4 py-3">
+                    <p className="text-[12px] text-mute mb-1">Current question</p>
+                    <p className="type-body-strong text-ink">{question}</p>
                   </div>
                   <div className="space-y-2">
                     <Label>Current answer</Label>
@@ -288,6 +277,7 @@ function SettingsInner() {
                       autoComplete="off"
                       value={currentAnswer}
                       onChange={(e) => setCurrentAnswer(e.target.value)}
+                      className="h-11 rounded-md"
                     />
                   </div>
                   <div className="space-y-2">
@@ -296,6 +286,7 @@ function SettingsInner() {
                       value={setupQuestion}
                       onChange={(e) => setSetupQuestion(e.target.value)}
                       maxLength={200}
+                      className="h-11 rounded-md"
                     />
                   </div>
                   <div className="space-y-2">
@@ -305,6 +296,7 @@ function SettingsInner() {
                       autoComplete="off"
                       value={answer}
                       onChange={(e) => setAnswer(e.target.value)}
+                      className="h-11 rounded-md"
                     />
                   </div>
                   <div className="space-y-2">
@@ -314,12 +306,13 @@ function SettingsInner() {
                       autoComplete="off"
                       value={confirmAnswer}
                       onChange={(e) => setConfirmAnswer(e.target.value)}
+                      className="h-11 rounded-md"
                     />
                   </div>
                   <div className="flex gap-2">
                     <button
                       onClick={() => setMode("view")}
-                      className="px-4 py-2 text-xs rounded-pill border border-hairline dark:border-white/15"
+                      className="btn-secondary"
                       disabled={busy}
                     >
                       Cancel
@@ -327,7 +320,7 @@ function SettingsInner() {
                     <button
                       onClick={handleChange}
                       disabled={busy}
-                      className="px-4 py-2 bg-primary text-white text-xs rounded-pill disabled:opacity-60 flex items-center gap-1.5"
+                      className="btn-primary"
                     >
                       {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                       Update
@@ -336,19 +329,15 @@ function SettingsInner() {
                 </div>
               ) : (
                 <div className="space-y-5">
-                  <div className="rounded-md bg-canvas-parchment dark:bg-surface-tile-3 border border-hairline dark:border-white/10 px-4 py-3">
-                    <p className="text-[11px] uppercase tracking-wider text-ink/45 dark:text-white/40 mb-1 font-semibold">
-                      Active question
-                    </p>
-                    <p className="text-sm font-medium text-ink dark:text-white">
-                      {question || "—"}
-                    </p>
+                  <div className="rounded-md bg-surface-card px-4 py-3">
+                    <p className="text-[12px] text-mute mb-1">Active question</p>
+                    <p className="type-body-strong text-ink">{question || "—"}</p>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {!unlocked && (
                       <button
                         onClick={() => requireEditAccess()}
-                        className="px-4 py-2 bg-primary text-white text-xs rounded-pill"
+                        className="btn-primary"
                       >
                         Unlock session
                       </button>
@@ -359,7 +348,7 @@ function SettingsInner() {
                           lock();
                           toast.message("Session locked");
                         }}
-                        className="px-4 py-2 text-xs rounded-pill border border-hairline dark:border-white/15"
+                        className="btn-secondary"
                       >
                         Lock session
                       </button>
@@ -369,7 +358,7 @@ function SettingsInner() {
                         setSetupQuestion(question || "");
                         setMode("change");
                       }}
-                      className="px-4 py-2 text-xs rounded-pill border border-hairline dark:border-white/15"
+                      className="btn-secondary"
                     >
                       Change question
                     </button>
@@ -379,15 +368,10 @@ function SettingsInner() {
             </div>
           </div>
 
-          {/* Account */}
-          <div className="border border-hairline dark:border-white/10 rounded-lg px-5 py-4">
-            <h2 className="text-sm font-semibold tracking-apple-tight mb-1">
-              Account
-            </h2>
-            <p className="text-xs text-ink/55 dark:text-white/50 mb-3">
-              Google Authentication only.
-            </p>
-            <p className="text-sm text-ink dark:text-white">{user?.email}</p>
+          <div className="rounded-md bg-canvas border border-hairline px-6 py-5">
+            <h2 className="type-heading-md text-ink mb-1">Account</h2>
+            <p className="type-body-sm text-mute mb-3">Google Authentication only.</p>
+            <p className="type-body-md text-ink">{user?.email}</p>
           </div>
         </section>
       </main>

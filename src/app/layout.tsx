@@ -2,20 +2,17 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
-import { Toaster } from "@/components/ui/sonner";
-import { ThemeProvider } from "@/components/ThemeProvider";
-import { AuthProvider } from "@/lib/auth-context";
-import { OnePasswordProvider } from "@/lib/one-password-context";
-import OnePasswordGate from "@/components/OnePasswordGate";
+import Providers from "@/components/Providers";
 
 const inter = Inter({
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
   variable: "--font-sans",
 });
 
 export const metadata: Metadata = {
-  title: "SiteSeen — Curation framed by invisible UI",
-  description: "Add, organize, and browse your favorite websites in a photography-first presentation.",
+  title: "SiteSeen",
+  description: "Your personal archive of websites — curated, framed, discovered.",
 };
 
 export default function RootLayout({
@@ -24,24 +21,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={cn("scroll-smooth antialiased", inter.variable)} suppressHydrationWarning>
-      <body className="bg-canvas text-ink font-sans">
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="light"
-          enableSystem={false}
-          disableTransitionOnChange={false}
-        >
-          <AuthProvider>
-            <OnePasswordProvider>
-              {children}
-              <OnePasswordGate />
-              <Toaster position="bottom-right" />
-            </OnePasswordProvider>
-          </AuthProvider>
-        </ThemeProvider>
+    <html
+      lang="en"
+      className={cn("scroll-smooth antialiased", inter.variable)}
+      suppressHydrationWarning
+    >
+      <body className="bg-canvas text-ink font-sans transition-colors duration-300">
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
 }
-

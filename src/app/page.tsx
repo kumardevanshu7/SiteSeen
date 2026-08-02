@@ -9,12 +9,7 @@ import SubNav from "@/components/SubNav";
 import LandingPage from "@/components/LandingPage";
 import AddSiteDialog from "@/components/AddSiteDialog";
 import SiteCard from "@/components/SiteCard";
-import {
-  Plus,
-  ChevronRight,
-  Loader2,
-  ArrowUpRight,
-} from "lucide-react";
+import { ChevronRight, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 export default function Home() {
@@ -23,7 +18,6 @@ export default function Home() {
   const [sites, setSites] = useState<SavedSite[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [showStickyBar, setShowStickyBar] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
@@ -53,22 +47,7 @@ export default function Home() {
     };
   }, [user, authLoading, getIdToken]);
 
-  useEffect(() => {
-    if (!user) return;
-    const handleScroll = () => setShowStickyBar(window.scrollY > 400);
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, [user]);
-
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-canvas">
-        <Loader2 className="h-7 w-7 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (!user) {
+  if (authLoading || !user) {
     return <LandingPage />;
   }
 
@@ -86,9 +65,7 @@ export default function Home() {
           : null);
       const saved = await addSite(newSiteData, token, unlock);
       setSites([saved, ...sites]);
-      toast.success("Website saved to Firestore", {
-        description: saved.title,
-      });
+      toast.success("Pinned to Firestore", { description: saved.title });
     } catch (err) {
       console.error(err);
       toast.error("Failed to save website.");
@@ -101,145 +78,91 @@ export default function Home() {
     if (ok) setIsAddDialogOpen(true);
   };
 
-  const previewSites = sites.slice(0, 3);
+  const previewSites = sites.slice(0, 8);
 
   return (
-    <div className="min-h-screen flex flex-col relative bg-canvas text-ink transition-colors">
+    <div className="min-h-screen flex flex-col bg-surface-soft text-body">
       <SubNav onAddSiteClick={openAdd} />
 
       <main className="flex-grow">
-        <section className="relative overflow-hidden bg-canvas py-16 md:py-24 border-b border-border/40">
-          <div className="mx-auto max-w-[980px] px-4 md:px-6">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-primary mb-3">
+        <section className="bg-canvas border-b border-hairline">
+          <div className="mx-auto max-w-content px-4 md:px-6 py-section">
+            <h1 className="type-display-lg text-ink max-w-[640px] mb-4">
               Welcome back
-            </p>
-            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-apple-display text-ink dark:text-white leading-tight mb-3 max-w-[640px]">
-              Your archive is ready.
             </h1>
-            <p className="text-base sm:text-lg text-ink-muted-80 dark:text-body-muted max-w-[520px] mb-8">
-              {sites.length} site{sites.length === 1 ? "" : "s"} in Firestore.
+            <p className="type-body-md text-body max-w-[480px] mb-8">
+              {sites.length} pin{sites.length === 1 ? "" : "s"} in your archive.
               Browse, filter, or add something new.
             </p>
             <div className="flex flex-wrap gap-3">
-              <button
-                onClick={openAdd}
-                className="px-5 py-2.5 bg-primary hover:bg-primary-focus text-white text-[14px] rounded-pill transition-all"
-              >
-                Add Website
+              <button onClick={openAdd} className="btn-primary">
+                Add website
               </button>
-              <Link
-                href="/collections"
-                className="px-5 py-2.5 border border-hairline dark:border-white/15 text-ink dark:text-white text-[14px] rounded-pill flex items-center gap-1 hover:bg-canvas-parchment dark:hover:bg-white/5 transition-all"
-              >
-                Open Collection <ChevronRight className="h-4 w-4" />
+              <Link href="/collections" className="btn-secondary">
+                Explore collection
+                <ChevronRight className="h-4 w-4" />
               </Link>
             </div>
           </div>
         </section>
 
-        <section className="bg-canvas-parchment dark:bg-surface-tile-3 py-14 border-b border-border/40">
-          <div className="mx-auto max-w-[980px] px-4 md:px-6">
-            <div className="flex items-end justify-between mb-8 gap-4">
-              <div>
-                <span className="text-xs font-semibold uppercase tracking-widest text-primary mb-2 block">
-                  Recent
-                </span>
-                <h2 className="text-2xl font-semibold tracking-apple-headline text-ink dark:text-white">
-                  From your collection
-                </h2>
-              </div>
-              <Link
-                href="/collections"
-                className="text-sm text-primary dark:text-primary-on-dark hover:underline flex items-center gap-1 shrink-0"
-              >
-                See all <ChevronRight className="h-4 w-4" />
-              </Link>
-            </div>
-
-            {loading ? (
-              <div className="flex justify-center py-16 text-ink/50">
-                <Loader2 className="h-7 w-7 animate-spin text-primary" />
-              </div>
-            ) : previewSites.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-                {previewSites.map((site) => (
-                  <SiteCard
-                    key={site.id}
-                    site={site}
-                    onDelete={async () => {
-                      toast.message("Delete from Collections");
-                    }}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-14 px-4">
-                <p className="text-sm text-ink-muted-80 dark:text-body-muted mb-4">
-                  Nothing archived yet. Add your first site to Firestore.
-                </p>
-                <button
-                  onClick={openAdd}
-                  className="px-4 py-2 bg-primary text-white text-xs rounded-pill"
-                >
-                  Add Your First Site
-                </button>
-              </div>
-            )}
+        <section className="mx-auto max-w-content px-4 md:px-6 py-section">
+          <div className="flex items-end justify-between mb-6 gap-4">
+            <h2 className="type-heading-xl text-ink">Recent pins</h2>
+            <Link
+              href="/collections"
+              className="type-body-strong text-ink-soft hover:underline inline-flex items-center gap-1"
+            >
+              See all <ChevronRight className="h-4 w-4" />
+            </Link>
           </div>
+
+          {loading ? (
+            <div className="flex justify-center py-16 text-mute">
+              <Loader2 className="h-7 w-7 animate-spin text-primary" />
+            </div>
+          ) : previewSites.length > 0 ? (
+            <div className="pin-masonry">
+              {previewSites.map((site) => (
+                <SiteCard
+                  key={site.id}
+                  site={site}
+                  onDelete={async () => {
+                    toast.message("Manage deletes from Explore");
+                  }}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-lg bg-surface-card p-10 text-center max-w-md">
+              <p className="type-body-md text-mute mb-4">
+                Nothing archived yet. Add your first site to Firestore.
+              </p>
+              <button onClick={openAdd} className="btn-primary">
+                Add your first site
+              </button>
+            </div>
+          )}
         </section>
 
-        <section
-          id="about-philosophy"
-          className="bg-surface-tile-2 py-16 text-white"
-        >
-          <div className="mx-auto max-w-[640px] px-6 text-center">
-            <h2 className="text-xl sm:text-2xl font-bold tracking-apple-headline mb-4">
-              Framed by near-invisible UI.
+        <section className="bg-surface-dark text-on-dark py-12 px-6">
+          <div className="mx-auto max-w-content flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+            <h2 className="type-heading-xl text-on-dark max-w-md">
+              Keep pinning ideas that inspire you.
             </h2>
-            <p className="text-sm text-body-muted leading-relaxed">
-              Your bookmarks stay in the cloud. Edits stay behind One Password.
-            </p>
+            <button onClick={openAdd} className="btn-primary shrink-0">
+              Add site
+            </button>
           </div>
         </section>
       </main>
 
-      <footer className="bg-canvas-parchment dark:bg-surface-tile-3 py-10 border-t border-border/20">
-        <div className="mx-auto max-w-[980px] px-4 md:px-6 text-[11px] text-ink-muted-48 dark:text-body-muted flex flex-col sm:flex-row sm:justify-between gap-2">
-          <p>Copyright © 2026 SiteSeen. All rights reserved.</p>
-          <a
-            href="https://github.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:underline flex items-center gap-0.5"
-          >
-            GitHub <ArrowUpRight className="h-3 w-3" />
-          </a>
+      <footer className="bg-canvas border-t border-hairline py-8">
+        <div className="mx-auto max-w-content px-4 md:px-6 flex flex-col sm:flex-row sm:justify-between gap-2 text-[12px] text-mute">
+          <p>© 2026 SiteSeen. All rights reserved.</p>
+          <p>Powered by Firestore</p>
         </div>
       </footer>
-
-      <div
-        className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-[calc(100%-2rem)] max-w-md h-16 bg-white/80 dark:bg-surface-tile-2/85 backdrop-blur-md border border-hairline dark:border-white/10 rounded-pill shadow-xl px-6 py-2 flex items-center justify-between transition-all duration-300 ${
-          showStickyBar
-            ? "translate-y-0 opacity-100"
-            : "translate-y-24 opacity-0 pointer-events-none"
-        }`}
-      >
-        <div className="flex flex-col">
-          <span className="text-xs font-semibold text-ink dark:text-white">
-            SiteSeen
-          </span>
-          <span className="text-[10px] text-ink-muted-80 dark:text-body-muted">
-            {sites.length} in Firestore
-          </span>
-        </div>
-        <button
-          onClick={openAdd}
-          className="flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-xs rounded-pill"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          Add Site
-        </button>
-      </div>
 
       <AddSiteDialog
         isOpen={isAddDialogOpen}

@@ -205,12 +205,12 @@ export default function AddSiteDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md bg-canvas border border-border/80 p-6 rounded-lg shadow-2xl duration-200">
+      <DialogContent className="sm:max-w-md bg-canvas p-8 rounded-lg shadow-modal">
         <DialogHeader className="space-y-1.5 pb-2">
-          <DialogTitle className="text-xl font-semibold tracking-apple-tight text-ink flex items-center gap-2">
+          <DialogTitle className="type-heading-lg text-ink flex items-center gap-2">
             Add Website
           </DialogTitle>
-          <DialogDescription className="text-xs text-ink/50 tracking-apple-tight">
+          <DialogDescription className="type-body-sm text-mute">
             Paste a link. SiteSeen will automatically fetch its metadata.
           </DialogDescription>
         </DialogHeader>
@@ -219,27 +219,27 @@ export default function AddSiteDialog({
           
           {/* Link input */}
           <div className="space-y-1.5 relative">
-            <Label htmlFor="url" className="text-xs font-semibold text-ink/70">
+            <Label htmlFor="url" className="type-body-sm font-semibold text-ink">
               Link
             </Label>
             <div className="relative">
               <Input
                 id="url"
                 type="text"
-                placeholder="e.g. apple.com"
+                placeholder="e.g. pinterest.com"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
                 disabled={isSaving}
-                className="w-full pr-10 bg-canvas text-ink border-border/80 focus-visible:ring-primary focus-visible:border-primary/80 rounded-sm text-sm"
+                className="w-full pr-10 h-11 rounded-md bg-canvas text-ink border-hairline"
                 required
               />
               {isFetching && (
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-primary/80 flex items-center">
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-primary flex items-center">
                   <Loader2 className="h-4 w-4 animate-spin" />
                 </div>
               )}
               {!isFetching && url && isValidUrl(url) && (
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-primary/60" title="Valid URL. Auto-fetching...">
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-mute" title="Valid URL. Auto-fetching...">
                   <Sparkles className="h-4 w-4 animate-pulse" />
                 </div>
               )}
@@ -248,7 +248,7 @@ export default function AddSiteDialog({
 
           {/* Title */}
           <div className="space-y-1.5">
-            <Label htmlFor="title" className="text-xs font-semibold text-ink/70">
+            <Label htmlFor="title" className="type-body-sm font-semibold text-ink">
               Title
             </Label>
             <Input
@@ -258,14 +258,14 @@ export default function AddSiteDialog({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               disabled={isSaving || isFetching}
-              className="bg-canvas text-ink border-border/80 focus-visible:ring-primary rounded-sm text-sm"
+              className="h-11 rounded-md bg-canvas text-ink border-hairline"
               required
             />
           </div>
 
           {/* Description */}
           <div className="space-y-1.5">
-            <Label htmlFor="description" className="text-xs font-semibold text-ink/70">
+            <Label htmlFor="description" className="type-body-sm font-semibold text-ink">
               Description
             </Label>
             <textarea
@@ -275,18 +275,18 @@ export default function AddSiteDialog({
               onChange={(e) => setDescription(e.target.value)}
               disabled={isSaving || isFetching}
               rows={2}
-              className="w-full p-2.5 bg-canvas text-ink border border-border/80 focus-visible:ring-primary focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent rounded-sm text-sm transition-all"
+              className="w-full p-3 bg-canvas text-ink border border-hairline focus:outline-none focus:ring-2 focus:ring-ring rounded-md type-body-sm"
             />
           </div>
 
           {/* Category Selector */}
           <div className="space-y-2">
             <div className="flex justify-between items-center">
-              <Label className="text-xs font-semibold text-ink/70">Category</Label>
+              <Label className="type-body-sm font-semibold text-ink">Category</Label>
               <button
                 type="button"
                 onClick={() => setShowCustomCategory(!showCustomCategory)}
-                className="text-[11px] font-normal text-primary hover:text-primary-focus tracking-apple-tight"
+                className="type-button-sm text-ink-soft hover:underline"
               >
                 {showCustomCategory ? "Select Existing" : "Create New"}
               </button>
@@ -299,7 +299,7 @@ export default function AddSiteDialog({
                 value={customCategory}
                 onChange={(e) => setCustomCategory(e.target.value)}
                 disabled={isSaving}
-                className="bg-canvas text-ink border-border/80 focus-visible:ring-primary rounded-sm text-sm"
+                className="h-11 rounded-md bg-canvas text-ink border-hairline"
                 required
               />
             ) : (
@@ -309,11 +309,9 @@ export default function AddSiteDialog({
                     key={cat}
                     type="button"
                     onClick={() => setCategory(cat)}
-                    className={`px-3 py-1 text-xs tracking-apple-tight rounded-pill border transition-all ${
-                      category === cat
-                        ? "bg-primary border-primary text-white"
-                        : "bg-surface-pearl border-border/60 text-ink/80 hover:border-border"
-                    }`}
+                    className={
+                      category === cat ? "filter-chip-active" : "filter-chip"
+                    }
                   >
                     {cat}
                   </button>
@@ -324,8 +322,8 @@ export default function AddSiteDialog({
 
           {/* Tags */}
           <div className="space-y-1.5">
-            <Label htmlFor="tags" className="text-xs font-semibold text-ink/70">
-              Tags <span className="text-[10px] font-normal text-ink/40">(comma or enter separated)</span>
+            <Label htmlFor="tags" className="type-body-sm font-semibold text-ink">
+              Tags <span className="font-normal text-mute">(comma or enter)</span>
             </Label>
             <div className="flex gap-2">
               <Input
@@ -336,13 +334,13 @@ export default function AddSiteDialog({
                 onChange={(e) => setTagsInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 disabled={isSaving}
-                className="bg-canvas text-ink border-border/80 focus-visible:ring-primary rounded-sm text-sm"
+                className="h-11 rounded-md bg-canvas text-ink border-hairline"
               />
               <button
                 type="button"
                 onClick={addTag}
                 disabled={isSaving || !tagsInput.trim()}
-                className="px-3 bg-surface-pearl hover:bg-border/20 border border-border/80 text-ink rounded-sm active:scale-95 transition-all flex items-center justify-center"
+                className="btn-secondary px-3"
               >
                 <Plus className="h-4 w-4" />
               </button>
@@ -354,11 +352,11 @@ export default function AddSiteDialog({
                   <Badge
                     key={tag}
                     variant="secondary"
-                    className="flex items-center gap-1 bg-canvas-parchment hover:bg-canvas-parchment text-ink border border-border/60 rounded-pill px-2.5 py-0.5 text-xs font-normal"
+                    className="flex items-center gap-1 filter-chip"
                   >
                     <span>{tag}</span>
                     <X
-                      className="h-3 w-3 cursor-pointer text-ink/45 hover:text-ink/80 transition-colors"
+                      className="h-3 w-3 cursor-pointer text-mute hover:text-ink"
                       onClick={() => removeTag(tag)}
                     />
                   </Badge>
@@ -367,20 +365,19 @@ export default function AddSiteDialog({
             )}
           </div>
 
-          {/* Dialog Footer */}
-          <DialogFooter className="pt-4 border-t border-border/40 flex items-center justify-end gap-3">
+          <DialogFooter className="pt-4 border-t border-hairline flex items-center justify-end gap-3">
             <button
               type="button"
               onClick={onClose}
               disabled={isSaving}
-              className="px-4 py-2 border border-border/80 hover:bg-surface-pearl active:scale-95 text-ink text-xs font-normal rounded-pill transition-all"
+              className="btn-secondary"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSaving || isFetching}
-              className="px-5 py-2 bg-primary hover:bg-primary-focus active:scale-95 disabled:opacity-40 disabled:pointer-events-none text-white text-xs font-normal rounded-pill transition-all shadow-sm flex items-center gap-1.5"
+              className="btn-primary"
             >
               {isSaving && <Loader2 className="h-3 w-3 animate-spin" />}
               <span>Save Website</span>

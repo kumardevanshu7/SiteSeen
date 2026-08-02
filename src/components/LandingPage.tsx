@@ -1,64 +1,71 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { useTheme } from "next-themes";
 import { useAuth } from "@/lib/auth-context";
-import { Loader2, LogIn, Shield, Database, LayoutGrid } from "lucide-react";
+import {
+  Loader2,
+  LogIn,
+  Shield,
+  Database,
+  LayoutGrid,
+  Sun,
+  Moon,
+} from "lucide-react";
 
 export default function LandingPage() {
   const { signInWithGoogle, loading } = useAuth();
+  const { theme, resolvedTheme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => setMounted(true), []);
+
+  const isDark = mounted && (resolvedTheme === "dark" || theme === "dark");
+  const toggleTheme = () => setTheme(isDark ? "light" : "dark");
 
   return (
-    <div className="min-h-screen flex flex-col bg-canvas text-ink relative overflow-hidden">
-      {/* Atmosphere */}
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            "radial-gradient(ellipse 80% 50% at 50% -10%, rgba(0,102,204,0.12), transparent 55%), radial-gradient(ellipse 60% 40% at 90% 80%, rgba(0,0,0,0.04), transparent 50%)",
-        }}
-      />
-      <div
-        className="pointer-events-none absolute inset-0 opacity-[0.35]"
-        style={{
-          backgroundImage:
-            "linear-gradient(rgba(0,0,0,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px)",
-          backgroundSize: "48px 48px",
-        }}
-      />
-
-      <header className="relative z-10 h-[52px] flex items-center justify-between px-5 md:px-8">
-        <span className="text-[20px] font-semibold tracking-apple-tight select-none">
+    <div className="min-h-screen flex flex-col bg-surface-soft text-body">
+      <header className="h-16 flex items-center justify-between px-5 md:px-8 bg-canvas border-b border-hairline">
+        <span className="type-body-strong text-[20px] text-primary select-none">
           SiteSeen
         </span>
-        <button
-          type="button"
-          onClick={() => signInWithGoogle()}
-          disabled={loading}
-          className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs rounded-pill border border-hairline bg-canvas/80 backdrop-blur-sm hover:bg-surface-pearl transition-all"
-        >
-          <LogIn className="h-3.5 w-3.5" />
-          Sign in
-        </button>
+        <div className="flex items-center gap-2">
+          {mounted && (
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-card text-ink"
+              aria-label="Toggle theme"
+            >
+              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => signInWithGoogle()}
+            disabled={loading}
+            className="btn-secondary"
+          >
+            <LogIn className="h-3.5 w-3.5" />
+            Log in
+          </button>
+        </div>
       </header>
 
-      <main className="relative z-10 flex-grow flex flex-col items-center justify-center px-5 pb-16 pt-8 text-center">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary mb-5">
-          Private curation
-        </p>
-
-        <h1 className="text-[2.6rem] sm:text-5xl md:text-6xl font-bold tracking-apple-display leading-[1.05] max-w-[720px] mb-5">
-          SiteSeen
+      <main className="flex-grow flex flex-col items-center justify-center px-5 py-section text-center">
+        <h1 className="type-display-xl text-ink max-w-[780px] mb-6">
+          Create the collection you love
         </h1>
-
-        <p className="text-base sm:text-lg text-ink-muted-80 font-light tracking-apple-tight max-w-[440px] leading-relaxed mb-10">
-          Your personal archive of websites — secured with Google, stored in
-          Firestore, unlocked only by you.
+        <p className="type-body-md text-body max-w-[440px] mb-10">
+          SiteSeen archives your favorite websites in a photography-first pin
+          grid — secured with Google, stored in Firestore.
         </p>
 
         <button
           type="button"
           onClick={() => signInWithGoogle()}
           disabled={loading}
-          className="inline-flex items-center gap-2 px-7 py-3 bg-primary hover:bg-primary-focus active:scale-[0.98] text-white text-[15px] rounded-pill shadow-sm transition-all disabled:opacity-70"
+          className="btn-primary h-12 px-6 text-[16px]"
         >
           {loading ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -68,21 +75,21 @@ export default function LandingPage() {
           Continue with Google
         </button>
 
-        <p className="mt-4 text-[11px] text-ink/45 max-w-xs">
+        <p className="mt-4 text-[12px] text-mute max-w-xs">
           Sign in required. No guest mode — your collection stays private.
         </p>
 
-        <div className="mt-16 grid grid-cols-1 sm:grid-cols-3 gap-8 sm:gap-10 max-w-[720px] w-full text-left">
+        <div className="mt-section grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-content w-full text-left">
           {[
             {
               icon: Shield,
               title: "Google only",
-              body: "No anonymous browsing. Every session starts with your Google account.",
+              body: "Every session starts with your Google account. No anonymous browsing.",
             },
             {
               icon: Database,
               title: "Firestore cloud",
-              body: "Sites live in Firebase — not on this device. Same archive on every screen.",
+              body: "Pins live in Firebase — same archive on every screen you use.",
             },
             {
               icon: LayoutGrid,
@@ -90,20 +97,21 @@ export default function LandingPage() {
               body: "Edits need your security Q&A unlock. Browse freely after you sign in.",
             },
           ].map((item) => (
-            <div key={item.title} className="space-y-2">
-              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <item.icon className="h-3.5 w-3.5 text-primary" />
+            <div
+              key={item.title}
+              className="rounded-md bg-surface-card p-8 space-y-3"
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-canvas text-ink">
+                <item.icon className="h-4 w-4" />
               </div>
-              <h3 className="text-sm font-semibold tracking-apple-tight">
-                {item.title}
-              </h3>
-              <p className="text-xs text-ink/55 leading-relaxed">{item.body}</p>
+              <h3 className="type-heading-md text-ink">{item.title}</h3>
+              <p className="type-body-sm text-mute">{item.body}</p>
             </div>
           ))}
         </div>
       </main>
 
-      <footer className="relative z-10 py-6 text-center text-[11px] text-ink/40">
+      <footer className="py-8 text-center text-[12px] text-mute border-t border-hairline bg-canvas">
         © 2026 SiteSeen · Arigato Labs
       </footer>
     </div>

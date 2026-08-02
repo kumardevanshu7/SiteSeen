@@ -10,63 +10,106 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "var(--background)",
-        foreground: "var(--foreground)",
+        background: "rgb(var(--background) / <alpha-value>)",
+        foreground: "rgb(var(--foreground) / <alpha-value>)",
         primary: {
-          DEFAULT: "#0066cc",
-          focus: "#0071e3",
-          "on-dark": "#2997ff",
+          DEFAULT: "rgb(var(--primary) / <alpha-value>)",
+          foreground: "rgb(var(--primary-foreground) / <alpha-value>)",
+          pressed: "rgb(var(--primary-pressed) / <alpha-value>)",
         },
-        canvas: {
-          DEFAULT: "#ffffff",
-          parchment: "#f5f5f7",
+        secondary: {
+          DEFAULT: "rgb(var(--secondary) / <alpha-value>)",
+          foreground: "rgb(var(--secondary-foreground) / <alpha-value>)",
+          pressed: "rgb(var(--secondary-pressed) / <alpha-value>)",
         },
+        canvas: "rgb(var(--canvas) / <alpha-value>)",
         surface: {
-          pearl: "#fafafc",
-          "tile-1": "#272729",
-          "tile-2": "#2a2a2c",
-          "tile-3": "#252527",
-          black: "#000000",
-          "chip-translucent": "rgba(210, 210, 215, 0.64)",
+          soft: "rgb(var(--surface-soft) / <alpha-value>)",
+          card: "rgb(var(--surface-card) / <alpha-value>)",
+          elevated: "rgb(var(--surface-elevated) / <alpha-value>)",
+          dark: "rgb(var(--surface-dark) / <alpha-value>)",
         },
         ink: {
-          DEFAULT: "#1d1d1f",
-          "muted-80": "#333333",
-          "muted-48": "#7a7a7a",
+          DEFAULT: "rgb(var(--ink) / <alpha-value>)",
+          soft: "rgb(var(--ink-soft) / <alpha-value>)",
         },
-        body: {
-          DEFAULT: "#1d1d1f",
-          muted: "#cccccc",
+        body: "rgb(var(--body) / <alpha-value>)",
+        charcoal: "rgb(var(--charcoal) / <alpha-value>)",
+        mute: "rgb(var(--mute) / <alpha-value>)",
+        ash: "rgb(var(--ash) / <alpha-value>)",
+        stone: "rgb(var(--stone) / <alpha-value>)",
+        hairline: {
+          DEFAULT: "rgb(var(--hairline) / <alpha-value>)",
+          soft: "rgb(var(--hairline-soft) / <alpha-value>)",
         },
-        hairline: "#e0e0e0",
-        "divider-soft": "rgba(0, 0, 0, 0.04)",
-        border: "var(--border)",
-        input: "var(--input)",
-        ring: "var(--ring)",
+        "on-dark": {
+          DEFAULT: "rgb(var(--on-dark) / <alpha-value>)",
+          mute: "rgb(var(--on-dark-mute) / 0.7)",
+        },
+        success: {
+          deep: "rgb(var(--success-deep) / <alpha-value>)",
+          pale: "rgb(var(--success-pale) / <alpha-value>)",
+        },
+        border: "rgb(var(--border) / <alpha-value>)",
+        input: "rgb(var(--input) / <alpha-value>)",
+        ring: "rgb(var(--ring) / <alpha-value>)",
+        card: {
+          DEFAULT: "rgb(var(--card) / <alpha-value>)",
+          foreground: "rgb(var(--card-foreground) / <alpha-value>)",
+        },
+        muted: {
+          DEFAULT: "rgb(var(--muted) / <alpha-value>)",
+          foreground: "rgb(var(--muted-foreground) / <alpha-value>)",
+        },
+        accent: {
+          DEFAULT: "rgb(var(--accent) / <alpha-value>)",
+          foreground: "rgb(var(--accent-foreground) / <alpha-value>)",
+        },
+        destructive: {
+          DEFAULT: "rgb(var(--destructive) / <alpha-value>)",
+          foreground: "rgb(var(--destructive-foreground) / <alpha-value>)",
+        },
+        popover: {
+          DEFAULT: "rgb(var(--popover) / <alpha-value>)",
+          foreground: "rgb(var(--popover-foreground) / <alpha-value>)",
+        },
       },
       borderRadius: {
         none: "0px",
-        xs: "5px",
         sm: "8px",
-        md: "11px",
-        lg: "18px",
+        md: "16px",
+        lg: "32px",
         pill: "9999px",
         full: "9999px",
       },
       fontFamily: {
-        sans: ["var(--font-sans)", "system-ui", "-apple-system", "sans-serif"],
+        sans: [
+          "var(--font-sans)",
+          "-apple-system",
+          "system-ui",
+          "Segoe UI",
+          "Roboto",
+          "Helvetica Neue",
+          "Arial",
+          "sans-serif",
+        ],
       },
       letterSpacing: {
-        "apple-tight": "-0.01em",
-        "apple-headline": "-0.28px",
-        "apple-display": "-0.374px",
+        display: "-1.2px",
+        "display-lg": "-0.8px",
+        heading: "-1.2px",
       },
-      transitionDuration: {
-        "350": "350ms",
+      spacing: {
+        section: "64px",
+      },
+      maxWidth: {
+        content: "1280px",
+      },
+      boxShadow: {
+        modal: "0 8px 32px rgba(0,0,0,0.18)",
       },
     },
   },
   plugins: [],
 };
 export default config;
-

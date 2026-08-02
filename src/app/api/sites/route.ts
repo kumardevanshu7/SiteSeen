@@ -25,43 +25,21 @@ export async function GET(req: NextRequest) {
     }
 
     const db = getAdminDb();
+    // Sorting in memory keeps this a single-field query, so Firestore never
+    // asks for an ownerUid + createdAt composite index.
     const snap = await db
       .collection("sites")
       .where("ownerUid", "==", user.uid)
-      .orderBy("createdAt", "desc")
       .get();
 
-    const sites = snap.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
+    const sites = snap.docs
+      .map((doc) => ({ id: doc.id, ...doc.data() } as { id: string; createdAt?: number }))
+      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
     return NextResponse.json({ sites });
   } catch (error) {
     console.error("GET /api/sites failed:", error);
-    // Composite index may be missing — fallback without orderBy
-    try {
-      const user = await requireGoogleAuth(req);
-      if (!user) throw error;
-      const db = getAdminDb();
-      const snap = await db
-        .collection("sites")
-        .where("ownerUid", "==", user.uid)
-        .get();
-      const sites = snap.docs
-        .map((doc) => ({ id: doc.id, ...doc.data() }))
-        .sort(
-          (a, b) =>
-            ((b as { createdAt?: number }).createdAt || 0) -
-            ((a as { createdAt?: number }).createdAt || 0)
-        );
-      return NextResponse.json({ sites });
-    } catch (fallbackErr) {
-      console.error("GET /api/sites fallback failed:", fallbackErr);
-      return NextResponse.json(
-        { error: "Failed to fetch sites" },
-        { status: 500 }
-      );
-    }
+    return NextResponse.json({ error: "Failed to fetch sites" }, { status: 500 });
   }
 }
 

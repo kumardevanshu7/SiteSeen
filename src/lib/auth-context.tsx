@@ -42,12 +42,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const unsub = onAuthStateChanged(auth, (next) => {
-      setUser(next);
-      setLoading(false);
-    });
+    const unsub = onAuthStateChanged(
+      auth,
+      (next) => {
+        setUser(next);
+        setLoading(false);
+      },
+      (err) => {
+        console.error("Auth state error:", err);
+        setLoading(false);
+      }
+    );
 
-    return () => unsub();
+    // Safety: never spin forever if Firebase hangs
+    const timeout = setTimeout(() => setLoading(false), 8000);
+
+    return () => {
+      clearTimeout(timeout);
+      unsub();
+    };
   }, []);
 
   const signInWithGoogle = async () => {

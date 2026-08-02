@@ -1,6 +1,5 @@
 import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
 import { getAuth, Auth, GoogleAuthProvider } from "firebase/auth";
-import { getFirestore, Firestore } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -19,13 +18,11 @@ export const isFirebaseConfigured = !!(
 );
 
 let app: FirebaseApp | undefined;
-let db: Firestore | null = null;
 let auth: Auth | null = null;
 
 if (isFirebaseConfigured) {
   try {
     app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-    db = getFirestore(app);
     auth = getAuth(app);
   } catch (error) {
     console.error("Firebase initialization failed:", error);
@@ -34,5 +31,4 @@ if (isFirebaseConfigured) {
 
 export const googleProvider = new GoogleAuthProvider();
 
-export { app, db, auth };
-export default db;
+export { app, auth };
