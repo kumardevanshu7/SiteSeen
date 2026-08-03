@@ -605,12 +605,14 @@ function CollectionsInner() {
                 className="search-pill pl-11"
                 autoComplete="off"
                 role="combobox"
+                aria-controls="explore-search-suggestions"
                 aria-expanded={suggestOpen && suggestions.length > 0}
                 aria-autocomplete="list"
               />
 
               {suggestOpen && suggestions.length > 0 && (
                 <ul
+                  id="explore-search-suggestions"
                   className="absolute left-0 right-0 top-[calc(100%+6px)] z-30 overflow-hidden rounded-md border border-hairline bg-canvas shadow-modal"
                   role="listbox"
                 >

@@ -1,4 +1,10 @@
-import { initializeApp, getApps, cert, App } from "firebase-admin/app";
+import {
+  initializeApp,
+  getApps,
+  cert,
+  App,
+  ServiceAccount,
+} from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 import { existsSync, readFileSync } from "fs";
@@ -9,7 +15,7 @@ let adminApp: App | undefined;
 /** Google service-account JSON (snake_case) or Admin SDK camelCase fields. */
 type AdminCredentialInput = Record<string, string>;
 
-function normalizeAccount(raw: AdminCredentialInput): AdminCredentialInput {
+function normalizeAccount(raw: AdminCredentialInput): ServiceAccount {
   let privateKey = String(raw.private_key || raw.privateKey || "");
   // Strip accidental wrapping quotes from Vercel env paste
   if (
@@ -27,7 +33,7 @@ function normalizeAccount(raw: AdminCredentialInput): AdminCredentialInput {
   };
 }
 
-function fromEnvJson(): AdminCredentialInput | null {
+function fromEnvJson(): ServiceAccount | null {
   const envVal = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
   if (!envVal?.trim()) return null;
   try {
@@ -51,7 +57,7 @@ function fromEnvJson(): AdminCredentialInput | null {
   }
 }
 
-function fromEnvFields(): AdminCredentialInput | null {
+function fromEnvFields(): ServiceAccount | null {
   const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID;
   const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
   const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY;
@@ -65,7 +71,7 @@ function fromEnvFields(): AdminCredentialInput | null {
   });
 }
 
-function fromLocalFile(): AdminCredentialInput | null {
+function fromLocalFile(): ServiceAccount | null {
   const keyPath = join(process.cwd(), "scripts", "serviceAccountKey.json");
   if (!existsSync(keyPath)) return null;
   try {
@@ -78,7 +84,7 @@ function fromLocalFile(): AdminCredentialInput | null {
   }
 }
 
-function getServiceAccount(): AdminCredentialInput {
+function getServiceAccount(): ServiceAccount {
   // Prefer split env fields — more reliable on Vercel than a giant JSON blob.
   const account = fromEnvFields() || fromEnvJson() || fromLocalFile();
   if (!account) {
@@ -106,16 +112,10 @@ export function getAdminApp(): App {
   const projectId =
     process.env.FIREBASE_ADMIN_PROJECT_ID ||
     process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ||
-    serviceAccount.projectId ||
-    serviceAccount.project_id;
+    serviceAccount.projectId;
 
   adminApp = initializeApp({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    credential: cert({
-      projectId: serviceAccount.projectId,
-      clientEmail: serviceAccount.clientEmail,
-      privateKey: serviceAccount.privateKey,
-    } as any),
+    credential: cert(serviceAccount),
     projectId,
   });
 
