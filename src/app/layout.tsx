@@ -1,8 +1,9 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import Providers from "@/components/Providers";
+import ServiceWorkerRegistrar from "@/components/ServiceWorkerRegistrar";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -29,6 +30,15 @@ export const metadata: Metadata = {
     title: "SiteSeen",
     statusBarStyle: "default",
   },
+  other: {
+    "mobile-web-app-capable": "yes",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#e60023",
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({
@@ -43,6 +53,7 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="bg-canvas text-ink font-sans transition-colors duration-300">
+        <ServiceWorkerRegistrar />
         <Providers>{children}</Providers>
       </body>
     </html>
