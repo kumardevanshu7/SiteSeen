@@ -13,8 +13,8 @@ import {
 export const dynamic = "force-dynamic";
 
 function docRef() {
-  const [col, id] = DOC_PATH.split("/");
-  return getAdminDb().collection(col!).doc(id!);
+  const [col, id] = DOC_PATH.split("/") as [string, string];
+  return getAdminDb().collection(col).doc(id);
 }
 
 /** Public-ish status — never returns hash/salt. Question only for signed-in users. */

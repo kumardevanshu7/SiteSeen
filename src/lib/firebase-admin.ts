@@ -111,7 +111,11 @@ export function getAdminApp(): App {
 
   adminApp = initializeApp({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    credential: cert(serviceAccount as any),
+    credential: cert({
+      projectId: serviceAccount.projectId,
+      clientEmail: serviceAccount.clientEmail,
+      privateKey: serviceAccount.privateKey,
+    } as any),
     projectId,
   });
 
