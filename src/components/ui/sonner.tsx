@@ -17,14 +17,13 @@ const Toaster = ({ ...props }: ToasterProps) => {
       richColors={false}
       closeButton={false}
       icons={{
-        success: <CircleCheckIcon className="size-4" />,
-        info: <InfoIcon className="size-4" />,
-        warning: <TriangleAlertIcon className="size-4" />,
-        error: <OctagonXIcon className="size-4" />,
-        loading: <Loader2Icon className="size-4 animate-spin" />,
+        success: <CircleCheckIcon className="size-4 text-white" />,
+        info: <InfoIcon className="size-4 text-white" />,
+        warning: <TriangleAlertIcon className="size-4 text-white" />,
+        error: <OctagonXIcon className="size-4 text-white" />,
+        loading: <Loader2Icon className="size-4 animate-spin text-white" />,
       }}
       toastOptions={{
-        unstyled: false,
         classNames: {
           toast: "siteseen-toast",
           title: "siteseen-toast-title",
