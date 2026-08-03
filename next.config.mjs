@@ -5,6 +5,8 @@ const nextConfig = {
       "firebase-admin",
       "@google-cloud/firestore",
       "@opentelemetry/api",
+      "jose",
+      "jwks-rsa",
     ],
   },
   async headers() {

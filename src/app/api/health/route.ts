@@ -40,7 +40,8 @@ export async function GET() {
       },
       hint:
         adminInit === "fail"
-          ? "Set FIREBASE_ADMIN_PROJECT_ID + FIREBASE_ADMIN_CLIENT_EMAIL + FIREBASE_ADMIN_PRIVATE_KEY on Vercel, then Redeploy."
+          ? adminError ||
+            "Admin init failed. Check Vercel logs / jose override / FIREBASE_ADMIN_* envs."
           : "Admin OK. If /api/sites still fails, check Google Auth token.",
     },
     { status: ok ? 200 : 503 }
