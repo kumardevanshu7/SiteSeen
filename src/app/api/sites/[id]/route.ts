@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebase-admin";
 import { requireEditAccess, requireGoogleAuth } from "@/lib/api-auth";
 
+export const dynamic = "force-dynamic";
+
 async function getOwnedSite(id: string, uid: string) {
   const db = getAdminDb();
   const snap = await db.collection("sites").doc(id).get();

@@ -10,6 +10,8 @@ import {
   issueUnlockToken,
 } from "@/lib/one-password";
 
+export const dynamic = "force-dynamic";
+
 function docRef() {
   const [col, id] = DOC_PATH.split("/");
   return getAdminDb().collection(col!).doc(id!);

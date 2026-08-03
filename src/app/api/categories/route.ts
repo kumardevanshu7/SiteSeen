@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebase-admin";
 import { requireEditAccess, requireGoogleAuth } from "@/lib/api-auth";
 
+export const dynamic = "force-dynamic";
+
 const DEFAULT_CATEGORIES = [
   "Design",
   "Tech",
