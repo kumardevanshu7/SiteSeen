@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Check } from "lucide-react";
 import SubNav from "@/components/SubNav";
 import SiteSeenMark from "@/components/SiteSeenMark";
+import SiteFooter from "@/components/SiteFooter";
 import { useAuth } from "@/lib/auth-context";
 
 export default function ExplorePage() {
@@ -38,7 +39,7 @@ export default function ExplorePage() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/arigato-labs-logo.png"
-            alt="Arigato Labs"
+            alt="Arigato Labs Logo"
             className="w-full max-w-[650px] h-auto object-contain -my-4"
           />
         </div>
@@ -65,33 +66,68 @@ export default function ExplorePage() {
 
         <footer className="mt-16 pt-10 border-t border-hairline text-center max-w-3xl mx-auto space-y-4">
           <h2 className="type-heading-md text-ink tracking-wide">
-            Legal Disclaimer &amp; License
+            ARIGATO LABS
           </h2>
           <p className="type-body-sm text-mute">
             Copyright © 2026 Arigato Labs. All Rights Reserved.
           </p>
           <p className="type-body-sm text-mute leading-relaxed">
-            Permission is hereby granted, free of charge, to any person obtaining
-            a copy of this software and associated documentation files (the
-            &quot;Software&quot;), to deal in the Software without restriction,
-            including without limitation the rights to use, copy, modify, merge,
-            publish, distribute, sublicense, and/or sell copies of the Software,
-            and to permit persons to whom the Software is furnished to do so,
-            subject to the following conditions:
-          </p>
-          <p className="type-body-sm text-mute leading-relaxed">
-            The above copyright notice and this permission notice shall be
-            included in all copies or substantial portions of the Software.
+            <strong className="text-ink">SiteSeen</strong> is a product of
+            Arigato Labs, founded by Kumar Devanshu. Brand name and logos may
+            not be reused outside Arigato Labs apps without permission.
           </p>
           <p className="text-[12px] text-ash leading-relaxed">
-            THE SOFTWARE IS PROVIDED &quot;AS IS&quot;, WITHOUT WARRANTY OF ANY
-            KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
-            OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-            NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-            BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY.
+            See{" "}
+            <Link href="/privacy" className="hover:text-ink transition-colors">
+              Privacy
+            </Link>
+            ,{" "}
+            <Link href="/terms" className="hover:text-ink transition-colors">
+              Terms
+            </Link>
+            , and{" "}
+            <Link
+              href="/disclaimer"
+              className="hover:text-ink transition-colors"
+            >
+              Disclaimer
+            </Link>{" "}
+            in this app. Contact:{" "}
+            <a
+              href="mailto:kumardevanshu3001@gmail.com"
+              className="hover:text-ink transition-colors"
+            >
+              kumardevanshu3001@gmail.com
+            </a>
+          </p>
+          <p className="text-[12px] text-mute flex flex-wrap justify-center gap-x-3 gap-y-1 pt-2">
+            <Link href="/about" className="hover:text-ink transition-colors">
+              About
+            </Link>
+            <span className="text-ash">·</span>
+            <Link href="/privacy" className="hover:text-ink transition-colors">
+              Privacy
+            </Link>
+            <span className="text-ash">·</span>
+            <Link href="/terms" className="hover:text-ink transition-colors">
+              Terms
+            </Link>
+            <span className="text-ash">·</span>
+            <Link
+              href="/disclaimer"
+              className="hover:text-ink transition-colors"
+            >
+              Disclaimer
+            </Link>
+            <span className="text-ash">·</span>
+            <Link href="/contact" className="hover:text-ink transition-colors">
+              Contact
+            </Link>
           </p>
         </footer>
       </main>
+
+      <SiteFooter />
     </div>
   );
 }

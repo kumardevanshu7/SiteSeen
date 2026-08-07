@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 import { useAuth } from "@/lib/auth-context";
 import SiteSeenMark from "@/components/SiteSeenMark";
+import SiteFooter from "@/components/SiteFooter";
 import {
   Loader2,
   LogIn,
@@ -130,9 +131,7 @@ export default function LandingPage() {
         </div>
       </main>
 
-      <footer className="py-8 text-center text-[12px] text-mute border-t border-hairline bg-canvas">
-        © 2026 SiteSeen · Arigato Labs
-      </footer>
+      <SiteFooter compact />
     </div>
   );
 }

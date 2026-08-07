@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getSites, addSite, deleteSite, getCategories, saveCategories, SavedSite, ApiError } from "@/lib/db";
 import { useAuth } from "@/lib/auth-context";
@@ -11,6 +10,7 @@ import RequireAuth from "@/components/RequireAuth";
 import AddSiteDialog from "@/components/AddSiteDialog";
 import SiteCard from "@/components/SiteCard";
 import { PinGridSkeleton } from "@/components/SiteCardSkeleton";
+import SiteFooter from "@/components/SiteFooter";
 import { Search, Layers, X, Filter, Tag, Folder, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
@@ -749,14 +749,7 @@ function CollectionsInner() {
         </section>
       </main>
 
-      <footer className="mt-auto bg-canvas border-t border-hairline py-8">
-        <div className="mx-auto max-w-content px-4 md:px-6 flex flex-col sm:flex-row sm:justify-between gap-2 text-[12px] text-mute">
-          <p>© 2026 SiteSeen · Arigato Labs</p>
-          <Link href="/explore" className="hover:text-ink transition-colors">
-            Explore Arigato Labs
-          </Link>
-        </div>
-      </footer>
+      <SiteFooter />
 
       <AddSiteDialog
         isOpen={isAddDialogOpen}
