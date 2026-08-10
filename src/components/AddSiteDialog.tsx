@@ -16,7 +16,7 @@ import { X, Loader2, Sparkles, Plus, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
 import { useOnePassword } from "@/lib/one-password-context";
-import { getCategories, saveCategories } from "@/lib/db";
+import { getCategories, saveCategories, getSites } from "@/lib/db";
 
 interface AddSiteDialogProps {
   isOpen: boolean;
@@ -69,6 +69,7 @@ export default function AddSiteDialog({
 
   const [tagsInput, setTagsInput] = useState("");
   const [tags, setTags] = useState<string[]>([]);
+  const [existingTags, setExistingTags] = useState<string[]>([]);
 
   const [imageUrl, setImageUrl] = useState("");
   const [favicon, setFavicon] = useState("");
@@ -85,6 +86,7 @@ export default function AddSiteDialog({
     setCategory("Design");
     setTagsInput("");
     setTags([]);
+    setExistingTags([]);
     setImageUrl("");
     setFavicon("");
     setIsFetching(false);
@@ -98,10 +100,24 @@ export default function AddSiteDialog({
     (async () => {
       try {
         const token = await getIdToken();
-        const list = await getCategories(token);
+        const [list, sites] = await Promise.all([
+          getCategories(token),
+          getSites(token).catch(() => []),
+        ]);
         const next = list.length ? list : FALLBACK_CATEGORIES;
         setCategories(next);
         if (!next.includes("Design") && next[0]) setCategory(next[0]);
+
+        const tagSet = new Set<string>();
+        for (const site of sites) {
+          for (const tag of site.tags || []) {
+            const t = tag.trim();
+            if (t) tagSet.add(t);
+          }
+        }
+        setExistingTags(
+          Array.from(tagSet).sort((a, b) => a.localeCompare(b))
+        );
       } catch {
         setCategories(FALLBACK_CATEGORIES);
       }
@@ -172,6 +188,14 @@ export default function AddSiteDialog({
 
   const removeTag = (tagToRemove: string) => {
     setTags(tags.filter((t) => t !== tagToRemove));
+  };
+
+  const toggleExistingTag = (tag: string) => {
+    setTags((prev) =>
+      prev.some((t) => t.toLowerCase() === tag.toLowerCase())
+        ? prev.filter((t) => t.toLowerCase() !== tag.toLowerCase())
+        : [...prev, tag]
+    );
   };
 
   const startEditCategories = async () => {
@@ -565,6 +589,32 @@ export default function AddSiteDialog({
                 <Plus className="h-4 w-4" />
               </button>
             </div>
+
+            {existingTags.length > 0 ? (
+              <div className="space-y-1.5 pt-1">
+                <p className="text-[11px] text-mute">Your tags</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {existingTags.map((tag) => {
+                    const active = tags.some(
+                      (t) => t.toLowerCase() === tag.toLowerCase()
+                    );
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => toggleExistingTag(tag)}
+                        disabled={isSaving || editingCategories}
+                        className={
+                          active ? "filter-chip-active" : "filter-chip"
+                        }
+                      >
+                        {tag}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
 
             {tags.length > 0 && (
               <div className="flex flex-wrap gap-1.5 pt-1.5">
