@@ -755,6 +755,7 @@ function CollectionsInner() {
         isOpen={isAddDialogOpen}
         onClose={() => setIsAddDialogOpen(false)}
         onSave={handleSaveSite}
+        knownTags={allTags.map(({ tag }) => tag)}
         onCategoriesChanged={async () => {
           try {
             const token = await getIdToken();

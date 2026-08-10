@@ -31,6 +31,27 @@ interface AddSiteDialogProps {
     favicon: string;
   }) => Promise<void>;
   onCategoriesChanged?: () => void;
+  /** Tags already used on saved pins — shown as quick-pick chips. */
+  knownTags?: string[];
+}
+
+function collectTagsFromSites(
+  sites: { tags?: string[] | string | null }[]
+): string[] {
+  const tagSet = new Set<string>();
+  for (const site of sites) {
+    const raw = site.tags;
+    const list = Array.isArray(raw)
+      ? raw
+      : typeof raw === "string"
+        ? raw.split(",")
+        : [];
+    for (const tag of list) {
+      const t = String(tag).trim();
+      if (t) tagSet.add(t);
+    }
+  }
+  return Array.from(tagSet).sort((a, b) => a.localeCompare(b));
 }
 
 const FALLBACK_CATEGORIES = [
@@ -49,6 +70,7 @@ export default function AddSiteDialog({
   onClose,
   onSave,
   onCategoriesChanged,
+  knownTags = [],
 }: AddSiteDialogProps) {
   const { getIdToken } = useAuth();
   const { unlockToken, requireEditAccess } = useOnePassword();
@@ -77,6 +99,8 @@ export default function AddSiteDialog({
   const [isSaving, setIsSaving] = useState(false);
 
   const prevFetchedUrlRef = useRef("");
+  const knownTagsRef = useRef(knownTags);
+  knownTagsRef.current = knownTags;
 
   useEffect(() => {
     if (!isOpen) return;
@@ -86,7 +110,13 @@ export default function AddSiteDialog({
     setCategory("Design");
     setTagsInput("");
     setTags([]);
-    setExistingTags([]);
+    // Seed immediately from parent so chips show even if refetch is slow/fails.
+    const seed = knownTagsRef.current;
+    setExistingTags(
+      Array.from(new Set(seed.map((t) => t.trim()).filter(Boolean))).sort(
+        (a, b) => a.localeCompare(b)
+      )
+    );
     setImageUrl("");
     setFavicon("");
     setIsFetching(false);
@@ -97,31 +127,40 @@ export default function AddSiteDialog({
     setDraftRows([]);
     prevFetchedUrlRef.current = "";
 
+    let cancelled = false;
     (async () => {
       try {
         const token = await getIdToken();
         const [list, sites] = await Promise.all([
           getCategories(token),
-          getSites(token).catch(() => []),
+          getSites(token).catch(
+            () => [] as Awaited<ReturnType<typeof getSites>>
+          ),
         ]);
+        if (cancelled) return;
+
         const next = list.length ? list : FALLBACK_CATEGORIES;
         setCategories(next);
         if (!next.includes("Design") && next[0]) setCategory(next[0]);
 
-        const tagSet = new Set<string>();
-        for (const site of sites) {
-          for (const tag of site.tags || []) {
-            const t = tag.trim();
-            if (t) tagSet.add(t);
-          }
+        const fromSites = collectTagsFromSites(sites);
+        if (fromSites.length) {
+          setExistingTags(fromSites);
+        } else if (seed.length) {
+          setExistingTags(
+            Array.from(
+              new Set(seed.map((t) => t.trim()).filter(Boolean))
+            ).sort((a, b) => a.localeCompare(b))
+          );
         }
-        setExistingTags(
-          Array.from(tagSet).sort((a, b) => a.localeCompare(b))
-        );
       } catch {
-        setCategories(FALLBACK_CATEGORIES);
+        if (!cancelled) setCategories(FALLBACK_CATEGORIES);
       }
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [isOpen, getIdToken]);
 
   const visibleCategories = categories;

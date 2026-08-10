@@ -174,6 +174,13 @@ export default function Home() {
         isOpen={isAddDialogOpen}
         onClose={() => setIsAddDialogOpen(false)}
         onSave={handleSaveSite}
+        knownTags={Array.from(
+          new Set(
+            sites.flatMap((s) =>
+              (Array.isArray(s.tags) ? s.tags : []).map((t) => t.trim()).filter(Boolean)
+            )
+          )
+        )}
       />
     </div>
   );
