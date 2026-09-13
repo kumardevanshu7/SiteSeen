@@ -6,6 +6,7 @@ import type { SavedSite } from "@/lib/db";
 import { useOnePassword } from "@/lib/one-password-context";
 import { ArrowUpRight, Trash2, Check, X } from "lucide-react";
 import { toast } from "sonner";
+import { HuggingFaceIcon, isHuggingFace } from "@/components/HuggingFace";
 
 interface SiteCardProps {
   site: SavedSite;
@@ -33,6 +34,7 @@ export default function SiteCard({ site, onDelete }: SiteCardProps) {
     title.toLowerCase() !== hostname.toLowerCase() &&
     title.toLowerCase() !== `www.${hostname}`.toLowerCase();
   const hasImage = Boolean(site.imageUrl) && !imgFailed;
+  const isHF = isHuggingFace(site);
 
   const handleCardClick = () => {
     try {
@@ -79,7 +81,13 @@ export default function SiteCard({ site, onDelete }: SiteCardProps) {
       onClick={handleCardClick}
       onPointerEnter={() => router.prefetch(`/site/${site.id}`)}
     >
-      <div className="relative aspect-square overflow-hidden rounded-md border border-hairline bg-surface-card">
+      <div
+        className={`relative aspect-square overflow-hidden rounded-md transition-colors ${
+          isHF
+            ? "border border-amber-200/90 bg-[#FFF9DB] shadow-[0_1px_3px_rgba(245,158,11,0.08)] dark:border-amber-800/50 dark:bg-[#282110]"
+            : "border border-hairline bg-surface-card"
+        }`}
+      >
         {hasImage ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -90,7 +98,11 @@ export default function SiteCard({ site, onDelete }: SiteCardProps) {
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center">
-            {site.favicon ? (
+            {isHF ? (
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/85 p-2.5 shadow-sm border border-amber-200/60 dark:bg-black/40 dark:border-amber-700/40">
+                <HuggingFaceIcon className="h-10 w-10" />
+              </div>
+            ) : site.favicon ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={site.favicon}
@@ -108,7 +120,12 @@ export default function SiteCard({ site, onDelete }: SiteCardProps) {
           </div>
         )}
 
-        {site.category ? (
+        {isHF ? (
+          <span className="pin-overlay-pill absolute left-2.5 top-2.5 shadow-sm inline-flex items-center gap-1.5 border border-amber-300/50 bg-canvas/95 backdrop-blur-sm">
+            <HuggingFaceIcon className="h-3.5 w-3.5 shrink-0" />
+            <span>{site.category || "Hugging Face"}</span>
+          </span>
+        ) : site.category ? (
           <span className="pin-overlay-pill absolute left-2.5 top-2.5 shadow-sm">
             {site.category}
           </span>

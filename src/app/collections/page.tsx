@@ -13,6 +13,7 @@ import { PinGridSkeleton } from "@/components/SiteCardSkeleton";
 import SiteFooter from "@/components/SiteFooter";
 import { Search, Layers, X, Filter, Tag, Folder, Pencil } from "lucide-react";
 import { toast } from "sonner";
+import { HuggingFaceIcon, isHuggingFace } from "@/components/HuggingFace";
 
 type SearchSuggestion = {
   key: string;
@@ -507,14 +508,18 @@ function CollectionsInner() {
               const active =
                 (cat === "All" && selectedCategory === "All") ||
                 cat.toLowerCase() === selectedCategory.toLowerCase();
+              const isCatHF = isHuggingFace(cat);
               return (
                 <button
                   key={cat}
                   type="button"
                   onClick={() => setSelectedCategory(cat)}
-                  className={active ? "filter-chip-active" : "filter-chip"}
+                  className={`${
+                    active ? "filter-chip-active" : "filter-chip"
+                  } inline-flex items-center gap-1.5`}
                 >
-                  {cat}
+                  {isCatHF && <HuggingFaceIcon className="h-3.5 w-3.5 shrink-0" />}
+                  <span>{cat}</span>
                 </button>
               );
             })}
@@ -629,7 +634,9 @@ function CollectionsInner() {
                         }`}
                       >
                         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary overflow-hidden">
-                          {item.kind === "site" && item.favicon ? (
+                          {isHuggingFace(item.label) || isHuggingFace(item.query) ? (
+                            <HuggingFaceIcon className="h-4 w-4" />
+                          ) : item.kind === "site" && item.favicon ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
                               src={item.favicon}
@@ -664,8 +671,11 @@ function CollectionsInner() {
             {hasActiveFilters && (
               <div className="flex flex-wrap items-center gap-2 mt-4">
                 {selectedCategory !== "All" && (
-                  <span className="pin-overlay-pill inline-flex gap-1.5">
-                    {selectedCategory}
+                  <span className="pin-overlay-pill inline-flex items-center gap-1.5">
+                    {isHuggingFace(selectedCategory) && (
+                      <HuggingFaceIcon className="h-3.5 w-3.5 shrink-0" />
+                    )}
+                    <span>{selectedCategory}</span>
                     <button
                       onClick={() => setSelectedCategory("All")}
                       aria-label="Remove category"

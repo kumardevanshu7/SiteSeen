@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
 import { useOnePassword } from "@/lib/one-password-context";
 import { getCategories, saveCategories, getSites } from "@/lib/db";
+import { HuggingFaceIcon, isHuggingFace, HUGGING_FACE_CATEGORY } from "@/components/HuggingFace";
 
 interface AddSiteDialogProps {
   isOpen: boolean;
@@ -188,6 +189,17 @@ export default function AddSiteDialog({
     const delayDebounceFn = setTimeout(async () => {
       setIsFetching(true);
       prevFetchedUrlRef.current = activeUrl;
+      const isHF = isHuggingFace(activeUrl);
+
+      if (isHF) {
+        setCategories((prev) =>
+          prev.some((c) => c.toLowerCase() === HUGGING_FACE_CATEGORY.toLowerCase())
+            ? prev
+            : [HUGGING_FACE_CATEGORY, ...prev]
+        );
+        setCategory(HUGGING_FACE_CATEGORY);
+      }
+
       try {
         const res = await fetch(
           `/api/scrape?url=${encodeURIComponent(activeUrl)}`
@@ -197,9 +209,15 @@ export default function AddSiteDialog({
         if (data.title) setTitle(data.title);
         if (data.description) setDescription(data.description);
         if (data.imageUrl) setImageUrl(data.imageUrl);
-        if (data.favicon) setFavicon(data.favicon);
+        if (data.favicon) {
+          setFavicon(data.favicon);
+        } else if (isHF) {
+          setFavicon("https://huggingface.co/front/assets/huggingface_logo-noborder.svg");
+        }
       } catch {
-        // keep manual fields
+        if (isHF) {
+          setFavicon("https://huggingface.co/front/assets/huggingface_logo-noborder.svg");
+        }
       } finally {
         setIsFetching(false);
       }
@@ -435,6 +453,12 @@ export default function AddSiteDialog({
                 </div>
               )}
             </div>
+            {isHuggingFace(url) && (
+              <div className="flex items-center gap-2 rounded-md border border-amber-300/70 bg-[#FFF9DB] px-3 py-1.5 text-[12px] font-medium text-amber-950 dark:border-amber-700/50 dark:bg-[#282110] dark:text-amber-200">
+                <HuggingFaceIcon className="h-4 w-4 shrink-0" />
+                <span>Hugging Face detected: special yellow card &amp; logo label applied.</span>
+              </div>
+            )}
           </div>
 
           <div className="space-y-1.5">
@@ -588,18 +612,22 @@ export default function AddSiteDialog({
               />
             ) : (
               <div className="flex flex-wrap gap-1.5">
-                {visibleCategories.map((cat) => (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() => setCategory(cat)}
-                    className={
-                      category === cat ? "filter-chip-active" : "filter-chip"
-                    }
-                  >
-                    {cat}
-                  </button>
-                ))}
+                {visibleCategories.map((cat) => {
+                  const isCatHF = isHuggingFace(cat);
+                  return (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setCategory(cat)}
+                      className={`${
+                        category === cat ? "filter-chip-active" : "filter-chip"
+                      } inline-flex items-center gap-1.5`}
+                    >
+                      {isCatHF && <HuggingFaceIcon className="h-3.5 w-3.5 shrink-0" />}
+                      <span>{cat}</span>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>

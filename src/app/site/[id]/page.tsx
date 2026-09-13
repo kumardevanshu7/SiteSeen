@@ -21,6 +21,7 @@ import {
 import { toast } from "sonner";
 import Link from "next/link";
 import { BrandLoader } from "@/components/SiteSeenMark";
+import { HuggingFaceIcon, isHuggingFace } from "@/components/HuggingFace";
 
 const cacheKey = (id: string) => `siteseen_site_${id}`;
 
@@ -64,6 +65,7 @@ function SiteInner() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const hostname = site ? getHostname(site.url) : "";
+  const isHF = isHuggingFace(site);
 
   useEffect(() => {
     const cached = readCachedSite(id);
@@ -233,9 +235,21 @@ function SiteInner() {
 
       <div className="flex-1 pb-[88px] md:pb-10">
         <main className="mx-auto w-full max-w-xl px-4 pt-5 md:pt-8 space-y-6">
-          <article className="rounded-2xl border border-hairline bg-canvas p-5 md:p-7 space-y-4 shadow-sm">
+          <article
+            className={`rounded-2xl border p-5 md:p-7 space-y-4 shadow-sm transition-colors ${
+              isHF
+                ? "border-amber-200/90 bg-[#FFFDF5] dark:border-amber-800/50 dark:bg-[#231E12]"
+                : "border-hairline bg-canvas"
+            }`}
+          >
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-hairline bg-secondary overflow-hidden">
+              <div
+                className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border overflow-hidden ${
+                  isHF
+                    ? "border-amber-200/90 bg-[#FFF9DB] dark:border-amber-800/50 dark:bg-[#282110]"
+                    : "border-hairline bg-secondary"
+                }`}
+              >
                 {markSrc ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -251,6 +265,8 @@ function SiteInner() {
                       el.style.display = "none";
                     }}
                   />
+                ) : isHF ? (
+                  <HuggingFaceIcon className="h-7 w-7" />
                 ) : (
                   <span className="type-heading-md text-ink">
                     {hostname[0]?.toUpperCase() ?? "?"}
@@ -258,9 +274,10 @@ function SiteInner() {
                 )}
               </div>
               <div className="min-w-0 flex-1">
-                {site.category ? (
-                  <p className="text-[12px] font-bold text-mute mb-0.5">
-                    {site.category}
+                {site.category || isHF ? (
+                  <p className="text-[12px] font-bold text-mute mb-0.5 inline-flex items-center gap-1.5">
+                    {isHF && <HuggingFaceIcon className="h-3.5 w-3.5 shrink-0" />}
+                    <span>{site.category || "Hugging Face"}</span>
                   </p>
                 ) : null}
                 <h1 className="type-heading-lg text-ink leading-tight">
