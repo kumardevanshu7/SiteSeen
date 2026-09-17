@@ -33,6 +33,13 @@ export async function GET(req: NextRequest) {
     const snap = await db.collection("settings").doc(docId(user.uid)).get();
     const stored = (snap.data()?.names as string[] | undefined) || [];
 
+    if (stored.length > 0) {
+      // User has explicitly customized categories — this is authoritative!
+      // Do NOT merge old categories from sites to prevent resurrecting deleted ones.
+      const cleaned = Array.from(new Set(stored.map((n) => n.trim()).filter(Boolean)));
+      return NextResponse.json({ categories: cleaned });
+    }
+
     const siteSnap = await db
       .collection("sites")
       .where("ownerUid", "==", user.uid)
@@ -45,7 +52,7 @@ export async function GET(req: NextRequest) {
 
     const merged = Array.from(
       new Set([
-        ...(stored.length ? stored : DEFAULT_CATEGORIES),
+        ...DEFAULT_CATEGORIES,
         ...Array.from(fromSites),
       ])
     ).filter(Boolean);
@@ -92,15 +99,16 @@ export async function PUT(req: NextRequest) {
 
     for (const doc of sitesSnap.docs) {
       const current = String(doc.data().category || "");
+      const currentNorm = current.trim().toLowerCase();
       let next = current;
 
       for (const del of deletes) {
-        if (current.toLowerCase() === String(del).toLowerCase()) {
+        if (currentNorm === String(del).trim().toLowerCase()) {
           next = "Uncategorized";
         }
       }
       for (const r of renames) {
-        if (current.toLowerCase() === String(r.from).toLowerCase()) {
+        if (currentNorm === String(r.from).trim().toLowerCase()) {
           next = String(r.to).trim() || next;
         }
       }

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { getSites, addSite, deleteSite, getCategories, saveCategories, SavedSite, ApiError } from "@/lib/db";
+import { getSites, addSite, deleteSite, getCategories, saveCategories, bulkUpdateSites, SavedSite, ApiError } from "@/lib/db";
 import { useAuth } from "@/lib/auth-context";
 import { useOnePassword } from "@/lib/one-password-context";
 import SubNav from "@/components/SubNav";
@@ -11,7 +11,7 @@ import AddSiteDialog from "@/components/AddSiteDialog";
 import SiteCard from "@/components/SiteCard";
 import { PinGridSkeleton } from "@/components/SiteCardSkeleton";
 import SiteFooter from "@/components/SiteFooter";
-import { Search, Layers, X, Filter, Tag, Folder, Pencil, ChevronDown, ChevronRight, ArrowUpDown, Check } from "lucide-react";
+import { Search, Layers, X, Filter, Tag, Folder, Pencil, ChevronDown, ChevronRight, ArrowUpDown, Check, CheckSquare, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { HuggingFaceIcon, isHuggingFace } from "@/components/HuggingFace";
 
@@ -82,6 +82,14 @@ function CollectionsInner() {
   const [sortOpen, setSortOpen] = useState(false);
   const sortWrapRef = useRef<HTMLDivElement>(null);
 
+  // Bulk pin selection state
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedSiteIds, setSelectedSiteIds] = useState<string[]>([]);
+  const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
+  const [bulkCategory, setBulkCategory] = useState("");
+  const [customBulkCategory, setCustomBulkCategory] = useState("");
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
+
   // Collapsible filter sections — persist across refreshes
   const [catOpen, setCatOpen] = useState<boolean>(() => {
     if (typeof window === "undefined") return true;
@@ -149,10 +157,14 @@ function CollectionsInner() {
   }, [user, getIdToken]);
 
   const categories = useMemo(() => {
-    const set = new Set<string>([
-      ...managedCategories,
-      ...sites.map((s) => s.category).filter(Boolean),
-    ]);
+    if (managedCategories.length > 0) {
+      const set = new Set<string>(managedCategories);
+      if (sites.some((s) => (s.category || "").toLowerCase() === "uncategorized")) {
+        set.add("Uncategorized");
+      }
+      return ["All", ...Array.from(set).sort((a, b) => a.localeCompare(b))];
+    }
+    const set = new Set<string>([...sites.map((s) => s.category).filter(Boolean)]);
     return ["All", ...Array.from(set).sort((a, b) => a.localeCompare(b))];
   }, [sites, managedCategories]);
 
@@ -458,6 +470,88 @@ function CollectionsInner() {
       toast.error("Failed to save categories.");
     } finally {
       setSavingCategories(false);
+    }
+  };
+
+  const toggleSelectSite = (id: string) => {
+    setSelectedSiteIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAll = () => {
+    const allFilteredIds = filteredSites.map((s) => s.id);
+    const allSelected =
+      allFilteredIds.length > 0 &&
+      allFilteredIds.every((id) => selectedSiteIds.includes(id));
+    if (allSelected) {
+      setSelectedSiteIds((prev) =>
+        prev.filter((id) => !allFilteredIds.includes(id))
+      );
+    } else {
+      const set = new Set([...selectedSiteIds, ...allFilteredIds]);
+      setSelectedSiteIds(Array.from(set));
+    }
+  };
+
+  const exitSelectMode = () => {
+    setSelectMode(false);
+    setSelectedSiteIds([]);
+    setBulkDialogOpen(false);
+    setBulkCategory("");
+    setCustomBulkCategory("");
+  };
+
+  const handleBulkChangeCategory = async () => {
+    const targetCategory = (customBulkCategory.trim() || bulkCategory).trim();
+    if (!targetCategory) {
+      toast.error("Please select or enter a category name");
+      return;
+    }
+    if (selectedSiteIds.length === 0) {
+      toast.error("No pins selected");
+      return;
+    }
+
+    try {
+      const ok = await requireEditAccess();
+      if (!ok) return;
+
+      setIsBulkUpdating(true);
+      const token = await getIdToken();
+      const unlock =
+        unlockToken ||
+        (typeof window !== "undefined"
+          ? sessionStorage.getItem("siteseen_one_password_unlock")
+          : null);
+
+      await bulkUpdateSites(
+        selectedSiteIds,
+        { category: targetCategory },
+        token,
+        unlock
+      );
+
+      toast.success(
+        `Updated ${selectedSiteIds.length} pin${
+          selectedSiteIds.length > 1 ? "s" : ""
+        } to "${targetCategory}"`
+      );
+
+      // Refresh data so pins and categories are accurately synced
+      const [data, cats] = await Promise.all([
+        getSites(token),
+        getCategories(token).catch(() => [] as string[]),
+      ]);
+      setSites(data);
+      setManagedCategories(cats);
+
+      exitSelectMode();
+    } catch (err) {
+      console.error("Bulk update failed", err);
+      toast.error("Failed to update category for selected pins.");
+    } finally {
+      setIsBulkUpdating(false);
     }
   };
 
@@ -789,62 +883,83 @@ function CollectionsInner() {
                   {filteredSites.length} of {sites.length} pins
                 </p>
 
-                <div className="relative" ref={sortWrapRef}>
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => setSortOpen((v) => !v)}
-                    className="h-9 inline-flex items-center gap-2 rounded-full border border-hairline bg-surface-card hover:bg-canvas px-3.5 text-xs font-semibold text-ink transition-colors shadow-xs"
-                    aria-expanded={sortOpen}
+                    onClick={() => {
+                      if (selectMode) {
+                        exitSelectMode();
+                      } else {
+                        setSelectMode(true);
+                      }
+                    }}
+                    className={`h-9 inline-flex items-center gap-1.5 rounded-full border px-3 text-xs font-semibold transition-colors shadow-xs ${
+                      selectMode
+                        ? "border-primary bg-primary text-primary-fg"
+                        : "border-hairline bg-surface-card hover:bg-canvas text-ink"
+                    }`}
                   >
-                    <ArrowUpDown className="h-3.5 w-3.5 text-mute" />
-                    <span>
-                      {sortBy === "date-desc"
-                        ? "Newest first"
-                        : sortBy === "date-asc"
-                        ? "Oldest first"
-                        : sortBy === "title-asc"
-                        ? "Name (A–Z)"
-                        : sortBy === "title-desc"
-                        ? "Name (Z–A)"
-                        : "Most visited"}
-                    </span>
-                    <ChevronDown
-                      className={`h-3 w-3 text-mute transition-transform duration-200 ${
-                        sortOpen ? "rotate-180" : ""
-                      }`}
-                    />
+                    <CheckSquare className="h-3.5 w-3.5" />
+                    <span>{selectMode ? "Done" : "Select pins"}</span>
                   </button>
 
-                  {sortOpen && (
-                    <div className="absolute right-0 top-[calc(100%+6px)] z-50 w-44 rounded-xl border border-hairline bg-canvas p-1 shadow-modal">
-                      {[
-                        { value: "date-desc" as const, label: "Newest first" },
-                        { value: "date-asc" as const, label: "Oldest first" },
-                        { value: "title-asc" as const, label: "Name (A–Z)" },
-                        { value: "title-desc" as const, label: "Name (Z–A)" },
-                        { value: "visits-desc" as const, label: "Most visited" },
-                      ].map((opt) => (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          onClick={() => {
-                            setSortBy(opt.value);
-                            setSortOpen(false);
-                          }}
-                          className={`flex w-full items-center justify-between px-3 py-2 text-xs font-medium rounded-lg transition-colors ${
-                            sortBy === opt.value
-                              ? "bg-surface-card font-bold text-ink"
-                              : "text-body hover:bg-surface-card hover:text-ink"
-                          }`}
-                        >
-                          <span>{opt.label}</span>
-                          {sortBy === opt.value && (
-                            <Check className="h-3.5 w-3.5 text-primary" />
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                  <div className="relative" ref={sortWrapRef}>
+                    <button
+                      type="button"
+                      onClick={() => setSortOpen((v) => !v)}
+                      className="h-9 inline-flex items-center gap-2 rounded-full border border-hairline bg-surface-card hover:bg-canvas px-3.5 text-xs font-semibold text-ink transition-colors shadow-xs"
+                      aria-expanded={sortOpen}
+                    >
+                      <ArrowUpDown className="h-3.5 w-3.5 text-mute" />
+                      <span>
+                        {sortBy === "date-desc"
+                          ? "Newest first"
+                          : sortBy === "date-asc"
+                          ? "Oldest first"
+                          : sortBy === "title-asc"
+                          ? "Name (A–Z)"
+                          : sortBy === "title-desc"
+                          ? "Name (Z–A)"
+                          : "Most visited"}
+                      </span>
+                      <ChevronDown
+                        className={`h-3 w-3 text-mute transition-transform duration-200 ${
+                          sortOpen ? "rotate-180" : ""
+                        }`}
+                      />
+                    </button>
+
+                    {sortOpen && (
+                      <div className="absolute right-0 top-[calc(100%+6px)] z-50 w-44 rounded-xl border border-hairline bg-canvas p-1 shadow-modal">
+                        {[
+                          { value: "date-desc" as const, label: "Newest first" },
+                          { value: "date-asc" as const, label: "Oldest first" },
+                          { value: "title-asc" as const, label: "Name (A–Z)" },
+                          { value: "title-desc" as const, label: "Name (Z–A)" },
+                          { value: "visits-desc" as const, label: "Most visited" },
+                        ].map((opt) => (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => {
+                              setSortBy(opt.value);
+                              setSortOpen(false);
+                            }}
+                            className={`flex w-full items-center justify-between px-3 py-2 text-xs font-medium rounded-lg transition-colors ${
+                              sortBy === opt.value
+                                ? "bg-surface-card font-bold text-ink"
+                                : "text-body hover:bg-surface-card hover:text-ink"
+                            }`}
+                          >
+                            <span>{opt.label}</span>
+                            {sortBy === opt.value && (
+                              <Check className="h-3.5 w-3.5 text-primary" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -857,6 +972,9 @@ function CollectionsInner() {
                       key={site.id}
                       site={site}
                       onDelete={handleDeleteSite}
+                      isSelectable={selectMode}
+                      isSelected={selectedSiteIds.includes(site.id)}
+                      onToggleSelect={() => toggleSelectSite(site.id)}
                     />
                   ))}
                 </div>
@@ -886,6 +1004,145 @@ function CollectionsInner() {
             </div>
           </div>
         </section>
+
+        {selectMode && (
+          <div className="fixed inset-x-4 bottom-6 z-40 mx-auto max-w-xl rounded-2xl border border-hairline bg-surface-card/95 p-3.5 shadow-modal backdrop-blur-md animate-fade-in-up">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={handleSelectAll}
+                  className="btn-secondary h-8 px-3 text-xs font-medium"
+                >
+                  {filteredSites.length > 0 &&
+                  filteredSites.every((s) => selectedSiteIds.includes(s.id))
+                    ? "Deselect all"
+                    : "Select all"}
+                </button>
+                <span className="text-xs font-bold text-ink">
+                  {selectedSiteIds.length} pin{selectedSiteIds.length === 1 ? "" : "s"} selected
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={selectedSiteIds.length === 0}
+                  onClick={() => {
+                    const firstSelected = sites.find((s) => s.id === selectedSiteIds[0]);
+                    setBulkCategory(firstSelected?.category || "");
+                    setCustomBulkCategory("");
+                    setBulkDialogOpen(true);
+                  }}
+                  className="btn-primary h-8 px-3.5 text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Change Category
+                </button>
+                <button
+                  type="button"
+                  onClick={exitSelectMode}
+                  className="h-8 w-8 inline-flex items-center justify-center rounded-full text-mute hover:text-ink hover:bg-canvas transition-colors"
+                  title="Close selection mode"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {bulkDialogOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
+            <div className="w-full max-w-md rounded-2xl border border-hairline bg-surface-card p-6 shadow-modal space-y-5 animate-fade-in-up">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="type-heading-md text-ink">Change Category</h3>
+                  <p className="type-body-sm text-mute mt-0.5">
+                    Assign {selectedSiteIds.length} selected pin{selectedSiteIds.length > 1 ? "s" : ""} to a category
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setBulkDialogOpen(false)}
+                  className="rounded-full p-1.5 text-mute hover:text-ink hover:bg-canvas transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                <label className="type-caption text-mute uppercase font-semibold">
+                  Choose Existing Category
+                </label>
+                <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto pr-1">
+                  {categories
+                    .filter((c) => c !== "All")
+                    .map((cat) => {
+                      const isCatHF = isHuggingFace(cat);
+                      const isSelected =
+                        !customBulkCategory &&
+                        bulkCategory.toLowerCase() === cat.toLowerCase();
+                      return (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => {
+                            setBulkCategory(cat);
+                            setCustomBulkCategory("");
+                          }}
+                          className={`${
+                            isSelected ? "filter-chip-active" : "filter-chip"
+                          } inline-flex items-center gap-1.5`}
+                        >
+                          {isCatHF && <HuggingFaceIcon className="h-3.5 w-3.5 shrink-0" />}
+                          <span>{cat}</span>
+                        </button>
+                      );
+                    })}
+                </div>
+
+                <div className="pt-2">
+                  <label className="type-caption text-mute uppercase font-semibold block mb-1.5">
+                    Or Enter Custom Category
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Design, Tools, AI..."
+                    value={customBulkCategory}
+                    onChange={(e) => {
+                      setCustomBulkCategory(e.target.value);
+                      if (e.target.value) setBulkCategory("");
+                    }}
+                    className="h-10 w-full rounded-lg border border-hairline bg-canvas px-3 text-sm text-ink placeholder:text-mute focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-hairline">
+                <button
+                  type="button"
+                  onClick={() => setBulkDialogOpen(false)}
+                  disabled={isBulkUpdating}
+                  className="btn-secondary h-9 px-4 text-xs font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleBulkChangeCategory}
+                  disabled={
+                    isBulkUpdating ||
+                    (!bulkCategory.trim() && !customBulkCategory.trim())
+                  }
+                  className="btn-primary h-9 px-4 text-xs font-semibold inline-flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {isBulkUpdating && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  <span>Apply Category</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
 
       <SiteFooter />

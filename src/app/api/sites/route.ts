@@ -82,3 +82,53 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+/** PATCH /api/sites — Bulk update sites (e.g. change category of multiple selected pins) */
+export async function PATCH(req: NextRequest) {
+  try {
+    const access = await requireEditAccess(req);
+    if (!access.ok) {
+      return NextResponse.json(
+        { error: access.error, code: "code" in access ? access.code : undefined },
+        { status: access.status }
+      );
+    }
+
+    const body = await req.json();
+    const ids: string[] = Array.isArray(body.ids) ? body.ids : [];
+    const updates = body.updates;
+
+    if (!ids.length || !updates || typeof updates !== "object") {
+      return NextResponse.json(
+        { error: "Invalid payload: ids array and updates object required." },
+        { status: 400 }
+      );
+    }
+
+    const allowedFields = ["category", "tags", "description", "title"];
+    const sanitizedUpdates: Record<string, unknown> = {};
+    for (const key of allowedFields) {
+      if (updates[key] !== undefined) {
+        sanitizedUpdates[key] = updates[key];
+      }
+    }
+
+    const db = getAdminDb();
+    const batch = db.batch();
+
+    for (const id of ids) {
+      const docRef = db.collection("sites").doc(id);
+      batch.update(docRef, sanitizedUpdates);
+    }
+
+    await batch.commit();
+
+    return NextResponse.json({ ok: true, updatedCount: ids.length });
+  } catch (error) {
+    console.error("PATCH /api/sites (bulk) failed:", error);
+    return NextResponse.json(
+      { error: "Failed to update sites" },
+      { status: 500 }
+    );
+  }
+}

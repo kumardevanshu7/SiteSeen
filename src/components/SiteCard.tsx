@@ -12,6 +12,9 @@ import { HuggingFaceIcon, isHuggingFace } from "@/components/HuggingFace";
 interface SiteCardProps {
   site: SavedSite;
   onDelete: (id: string) => Promise<void>;
+  isSelectable?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
 }
 
 function getHostname(url: string) {
@@ -22,7 +25,13 @@ function getHostname(url: string) {
   }
 }
 
-export default function SiteCard({ site, onDelete }: SiteCardProps) {
+export default function SiteCard({
+  site,
+  onDelete,
+  isSelectable = false,
+  isSelected = false,
+  onToggleSelect,
+}: SiteCardProps) {
   const router = useRouter();
   const { getIdToken } = useAuth();
   const { requireEditAccess } = useOnePassword();
@@ -40,6 +49,10 @@ export default function SiteCard({ site, onDelete }: SiteCardProps) {
   const isHF = isHuggingFace(site);
 
   const handleCardClick = () => {
+    if (isSelectable) {
+      onToggleSelect?.();
+      return;
+    }
     try {
       sessionStorage.removeItem("siteseen_slide_back");
       sessionStorage.setItem(`siteseen_site_${site.id}`, JSON.stringify(site));
@@ -110,7 +123,11 @@ export default function SiteCard({ site, onDelete }: SiteCardProps) {
       onPointerEnter={() => router.prefetch(`/site/${site.id}`)}
     >
       <div
-        className={`relative aspect-square overflow-hidden rounded-md transition-colors ${
+        className={`relative aspect-square overflow-hidden rounded-md transition-all ${
+          isSelected
+            ? "ring-2 ring-primary ring-offset-2 dark:ring-offset-[#262622]"
+            : ""
+        } ${
           isHF
             ? "border border-amber-200/90 bg-[#FFF9DB] shadow-[0_1px_3px_rgba(245,158,11,0.08)] dark:border-amber-800/50 dark:bg-[#282110]"
             : "border border-hairline bg-surface-card"
@@ -148,6 +165,26 @@ export default function SiteCard({ site, onDelete }: SiteCardProps) {
           </div>
         )}
 
+        {isSelectable && (
+          <div
+            className="absolute right-2.5 top-2.5 z-20 cursor-pointer"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleSelect?.();
+            }}
+          >
+            <div
+              className={`flex h-6 w-6 items-center justify-center rounded-full border shadow-sm transition-all ${
+                isSelected
+                  ? "bg-primary border-primary text-primary-foreground scale-105"
+                  : "bg-canvas/90 border-hairline text-transparent hover:border-ash hover:scale-105"
+              }`}
+            >
+              <Check className="h-3.5 w-3.5" strokeWidth={3} />
+            </div>
+          </div>
+        )}
+
         {isHF ? (
           <span className="pin-overlay-pill absolute left-2.5 top-2.5 shadow-sm inline-flex items-center gap-1.5 border border-amber-300/50 bg-canvas/95 backdrop-blur-sm max-w-[calc(100%-20px)]">
             <HuggingFaceIcon className="h-3.5 w-3.5 shrink-0" />
@@ -164,10 +201,11 @@ export default function SiteCard({ site, onDelete }: SiteCardProps) {
           aria-hidden
         />
 
-        <div
-          className="absolute right-2.5 bottom-2.5 z-10 flex gap-1.5 opacity-0 transition-opacity group-hover:opacity-100"
-          onClick={(e) => e.stopPropagation()}
-        >
+        {!isSelectable && (
+          <div
+            className="absolute right-2.5 bottom-2.5 z-10 flex gap-1.5 opacity-0 transition-opacity group-hover:opacity-100"
+            onClick={(e) => e.stopPropagation()}
+          >
           {confirmDelete ? (
             <div className="flex items-center gap-1 rounded-full bg-canvas px-1.5 py-1 shadow-modal">
               <button
@@ -220,6 +258,7 @@ export default function SiteCard({ site, onDelete }: SiteCardProps) {
             </>
           )}
         </div>
+        )}
       </div>
 
       <div className="px-0.5 pt-2 h-12">

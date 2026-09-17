@@ -110,6 +110,20 @@ export async function updateSite(
   await throwIfBad(res);
 }
 
+export async function bulkUpdateSites(
+  ids: string[],
+  updates: Partial<Omit<SavedSite, "id" | "createdAt">>,
+  googleToken?: string | null,
+  unlockToken?: string | null
+): Promise<void> {
+  const res = await fetch("/api/sites", {
+    method: "PATCH",
+    headers: authHeaders(googleToken, unlockToken, true),
+    body: JSON.stringify({ ids, updates }),
+  });
+  await throwIfBad(res);
+}
+
 /** Record site open/visit without requiring One Password (protected by Google Auth) */
 export async function recordSiteVisit(
   id: string,
