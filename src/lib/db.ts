@@ -9,6 +9,8 @@ export interface SavedSite {
   favicon?: string;
   createdAt: number;
   ownerUid?: string;
+  lastOpenedAt?: number;
+  visitCount?: number;
 }
 
 export class ApiError extends Error {
@@ -106,6 +108,23 @@ export async function updateSite(
     body: JSON.stringify(updates),
   });
   await throwIfBad(res);
+}
+
+/** Record site open/visit without requiring One Password (protected by Google Auth) */
+export async function recordSiteVisit(
+  id: string,
+  googleToken?: string | null
+): Promise<{ ok: boolean; lastOpenedAt: number; visitCount: number } | null> {
+  try {
+    const res = await fetch(`/api/sites/${id}`, {
+      method: "POST",
+      headers: authHeaders(googleToken),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
 }
 
 export async function getCategories(

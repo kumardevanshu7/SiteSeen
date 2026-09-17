@@ -23,7 +23,7 @@ export function PinGridSkeleton({ count = 8 }: { count?: number }) {
   return (
     <div className="pin-masonry" role="status" aria-label="Loading pins">
       {Array.from({ length: count }).map((_, i) => (
-        <SiteCardSkeleton key={i} delayMs={i * 90} />
+        <SiteCardSkeleton key={i} delayMs={i * 40} />
       ))}
     </div>
   );

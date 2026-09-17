@@ -124,15 +124,16 @@
     position: absolute;
     inset: 0;
     transform: translateX(-100%);
+    will-change: transform;
     background: linear-gradient(
       90deg,
       transparent 0%,
-      rgb(var(--canvas) / 0.55) 45%,
+      rgb(var(--canvas) / 0.55) 40%,
       rgb(var(--canvas) / 0.9) 50%,
-      rgb(var(--canvas) / 0.55) 55%,
+      rgb(var(--canvas) / 0.55) 60%,
       transparent 100%
     );
-    animation: skeleton-shine 1.35s ease-in-out infinite;
+    animation: skeleton-shine 1.1s ease-in-out infinite;
     animation-delay: var(--skeleton-delay, 0ms);
   }
 
@@ -144,11 +145,16 @@
     background: linear-gradient(
       90deg,
       transparent 0%,
-      rgb(255 255 255 / 0.05) 45%,
-      rgb(255 255 255 / 0.12) 50%,
-      rgb(255 255 255 / 0.05) 55%,
+      rgb(255 255 255 / 0.06) 40%,
+      rgb(255 255 255 / 0.14) 50%,
+      rgb(255 255 255 / 0.06) 60%,
       transparent 100%
     );
+  }
+
+  @keyframes skeleton-shine {
+    from { transform: translateX(-100%); }
+    to   { transform: translateX(150%); }
   }
 
   .page-slide-in {

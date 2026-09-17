@@ -12,11 +12,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { X, Loader2, Sparkles, Plus, Pencil } from "lucide-react";
+import { X, Loader2, Sparkles, Plus, Pencil, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
 import { useOnePassword } from "@/lib/one-password-context";
-import { getCategories, saveCategories, getSites } from "@/lib/db";
+import { getCategories, saveCategories, getSites, SavedSite } from "@/lib/db";
 import { HuggingFaceIcon, isHuggingFace, HUGGING_FACE_CATEGORY } from "@/components/HuggingFace";
 
 interface AddSiteDialogProps {
@@ -93,6 +93,7 @@ export default function AddSiteDialog({
   const [tagsInput, setTagsInput] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [existingTags, setExistingTags] = useState<string[]>([]);
+  const [existingSites, setExistingSites] = useState<SavedSite[]>([]);
 
   const [imageUrl, setImageUrl] = useState("");
   const [favicon, setFavicon] = useState("");
@@ -140,6 +141,7 @@ export default function AddSiteDialog({
         ]);
         if (cancelled) return;
 
+        setExistingSites(sites);
         const next = list.length ? list : FALLBACK_CATEGORIES;
         setCategories(next);
         if (!next.includes("Design") && next[0]) setCategory(next[0]);
@@ -165,6 +167,71 @@ export default function AddSiteDialog({
   }, [isOpen, getIdToken]);
 
   const visibleCategories = categories;
+
+  const normalizeUrl = (raw: string) => {
+    return raw
+      .trim()
+      .toLowerCase()
+      .replace(/^https?:\/\//, "")
+      .replace(/^www\./, "")
+      .replace(/\/+$/, "");
+  };
+
+  // Duplicate pin check
+  const duplicateSite = React.useMemo(() => {
+    const norm = normalizeUrl(url);
+    if (!norm || norm.length < 3) return null;
+    return existingSites.find((s) => normalizeUrl(s.url) === norm) || null;
+  }, [url, existingSites]);
+
+  // Intelligent tag suggestions based on URL, title, description, and existing tags
+  const suggestedTags = React.useMemo(() => {
+    const text = `${url} ${title} ${description}`.toLowerCase();
+    const found = new Set<string>();
+
+    // 1. From existing catalog
+    for (const t of existingTags) {
+      const clean = t.toLowerCase().trim();
+      if (clean.length >= 2 && text.includes(clean)) {
+        found.add(t);
+      }
+    }
+
+    // 2. Helpful keyword matches
+    const keywords: Record<string, string[]> = {
+      ai: ["AI"],
+      llm: ["AI", "LLM"],
+      gpt: ["AI"],
+      prompt: ["Prompt", "AI"],
+      figma: ["Design", "UI"],
+      design: ["Design"],
+      icon: ["Icons", "Design"],
+      font: ["Typography", "Design"],
+      color: ["Design"],
+      css: ["CSS", "Dev"],
+      react: ["React", "Dev"],
+      next: ["Next.js", "Dev"],
+      api: ["API", "Dev"],
+      git: ["Dev", "Code"],
+      github: ["Dev", "Open Source"],
+      tool: ["Tool"],
+      video: ["Video"],
+      image: ["Image"],
+      docs: ["Docs"],
+      free: ["Free"],
+      learn: ["Learn"],
+    };
+
+    for (const [kw, mapped] of Object.entries(keywords)) {
+      if (text.includes(kw)) {
+        for (const m of mapped) found.add(m);
+      }
+    }
+
+    return Array.from(found)
+      .filter((item) => !tags.some((cur) => cur.toLowerCase() === item.toLowerCase()))
+      .slice(0, 8);
+  }, [url, title, description, existingTags, tags]);
 
   const isValidUrl = (stringUrl: string) => {
     try {
@@ -459,6 +526,17 @@ export default function AddSiteDialog({
                 <span>Hugging Face detected: special yellow card &amp; logo label applied.</span>
               </div>
             )}
+            {duplicateSite && (
+              <div className="flex items-start gap-2.5 rounded-md border border-amber-300/80 bg-amber-50 p-2.5 text-[12px] text-amber-950 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-200">
+                <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+                <div className="min-w-0 flex-1">
+                  <p className="font-bold">Already saved in your collection!</p>
+                  <p className="opacity-90 text-[11px] truncate">
+                    Saved as &ldquo;{duplicateSite.title}&rdquo; in &ldquo;{duplicateSite.category}&rdquo;. You can still re-save or change its details.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="space-y-1.5">
@@ -656,6 +734,34 @@ export default function AddSiteDialog({
                 <Plus className="h-4 w-4" />
               </button>
             </div>
+
+            {suggestedTags.length > 0 && (
+              <div className="space-y-1.5 pt-1">
+                <div className="flex items-center gap-1 text-[11px] font-semibold text-mute">
+                  <Sparkles className="h-3 w-3 text-primary" />
+                  <span>Suggested tags</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {suggestedTags.map((sTag) => (
+                    <button
+                      key={sTag}
+                      type="button"
+                      onClick={() =>
+                        setTags((prev) =>
+                          prev.some((t) => t.toLowerCase() === sTag.toLowerCase())
+                            ? prev
+                            : [...prev, sTag]
+                        )
+                      }
+                      className="inline-flex items-center gap-1 rounded-full border border-primary/25 bg-primary/5 hover:bg-primary/10 px-2.5 py-1 text-[12px] font-medium text-ink transition-colors"
+                    >
+                      <Plus className="h-3 w-3 text-primary" />
+                      {sTag}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {existingTags.length > 0 ? (
               <div className="space-y-1.5 pt-1">

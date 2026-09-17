@@ -1,11 +1,11 @@
-import { spawn, execSync } from "node:child_process";
+import { spawn, execFileSync } from "node:child_process";
 
 const PORT = 3000;
 
 function freePort(port) {
   if (process.platform !== "win32") return;
   try {
-    const out = execSync("netstat -ano", { encoding: "utf8" });
+    const out = execFileSync("netstat", ["-ano"], { encoding: "utf8" });
     const pids = new Set();
     for (const line of out.split("\n")) {
       if (!line.includes(`:${port}`) || !line.includes("LISTENING")) continue;
@@ -15,7 +15,7 @@ function freePort(port) {
     }
     for (const pid of pids) {
       try {
-        execSync(`taskkill /PID ${pid} /F`, { stdio: "ignore" });
+        execFileSync("taskkill", ["/PID", pid, "/F"], { stdio: "ignore" });
       } catch {
         // already gone
       }
@@ -27,9 +27,12 @@ function freePort(port) {
 
 freePort(PORT);
 
-const child = spawn("npx", ["next", "dev", "-p", String(PORT)], {
+// On Windows npx is a .cmd file; shell:false requires the exact executable name.
+const npxCmd = process.platform === "win32" ? "npx.cmd" : "npx";
+
+const child = spawn(npxCmd, ["next", "dev", "-p", String(PORT)], {
   stdio: "inherit",
-  shell: true,
+  shell: false,
 });
 
 child.on("exit", (code) => process.exit(code ?? 0));

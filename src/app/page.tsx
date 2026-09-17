@@ -49,7 +49,8 @@ export default function Home() {
     };
   }, [user, authLoading, getIdToken]);
 
-  if (authLoading || !user) {
+  // Not yet determined if signed in — show landing
+  if (!authLoading && !user) {
     return <LandingPage />;
   }
 

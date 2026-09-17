@@ -15,6 +15,7 @@ import {
   Settings,
   Home,
   Search,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
@@ -45,6 +46,9 @@ function ArigatoIcon({ active }: { active?: boolean }) {
         className="object-contain"
         style={{
           filter: active ? "none" : "grayscale(100%) opacity(0.65)",
+        }}
+        onError={(e) => {
+          (e.target as HTMLElement).style.display = "none";
         }}
       />
     </span>
@@ -88,6 +92,7 @@ export default function SubNav({
   }, [drawerOpen]);
 
   const isCollections = pathname?.startsWith("/collections");
+  const isSuggestions = pathname?.startsWith("/suggestions");
   const isSettings = pathname?.startsWith("/settings");
   const isExplore = pathname?.startsWith("/explore");
   const isHome = pathname === "/";
@@ -107,6 +112,12 @@ export default function SubNav({
       label: "Explore",
       icon: LayoutGrid,
       active: isCollections,
+    },
+    {
+      href: "/suggestions",
+      label: "Suggestions",
+      icon: Sparkles,
+      active: isSuggestions,
     },
     {
       href: "/settings",

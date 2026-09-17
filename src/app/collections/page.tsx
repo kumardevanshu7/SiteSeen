@@ -11,7 +11,7 @@ import AddSiteDialog from "@/components/AddSiteDialog";
 import SiteCard from "@/components/SiteCard";
 import { PinGridSkeleton } from "@/components/SiteCardSkeleton";
 import SiteFooter from "@/components/SiteFooter";
-import { Search, Layers, X, Filter, Tag, Folder, Pencil } from "lucide-react";
+import { Search, Layers, X, Filter, Tag, Folder, Pencil, ChevronDown, ChevronRight, ArrowUpDown } from "lucide-react";
 import { toast } from "sonner";
 import { HuggingFaceIcon, isHuggingFace } from "@/components/HuggingFace";
 
@@ -65,6 +65,9 @@ function CollectionsInner() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [sortBy, setSortBy] = useState<
+    "date-desc" | "date-asc" | "title-asc" | "title-desc" | "visits-desc"
+  >("date-desc");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [suggestOpen, setSuggestOpen] = useState(false);
   const [activeSuggest, setActiveSuggest] = useState(0);
@@ -76,6 +79,27 @@ function CollectionsInner() {
   const [managedCategories, setManagedCategories] = useState<string[]>([]);
   const [savingCategories, setSavingCategories] = useState(false);
   const searchWrapRef = useRef<HTMLDivElement>(null);
+
+  // Collapsible filter sections — persist across refreshes
+  const [catOpen, setCatOpen] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    try { return localStorage.getItem("ss_cat_open") !== "0"; } catch { return true; }
+  });
+  const [tagsOpen, setTagsOpen] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    try { return localStorage.getItem("ss_tags_open") !== "0"; } catch { return true; }
+  });
+
+  const toggleCat = () => setCatOpen((v) => {
+    const next = !v;
+    try { localStorage.setItem("ss_cat_open", next ? "1" : "0"); } catch { /* ignore */ }
+    return next;
+  });
+  const toggleTags = () => setTagsOpen((v) => {
+    const next = !v;
+    try { localStorage.setItem("ss_tags_open", next ? "1" : "0"); } catch { /* ignore */ }
+    return next;
+  });
 
   useEffect(() => {
     const applySlideBack = () => {
@@ -145,7 +169,7 @@ function CollectionsInner() {
   }, [sites]);
 
   const filteredSites = useMemo(() => {
-    return sites.filter((site) => {
+    const list = sites.filter((site) => {
       const matchesCategory =
         selectedCategory === "All" ||
         site.category.toLowerCase() === selectedCategory.toLowerCase();
@@ -167,7 +191,15 @@ function CollectionsInner() {
 
       return matchesCategory && matchesTags && matchesSearch;
     });
-  }, [sites, selectedCategory, selectedTags, searchQuery]);
+
+    return [...list].sort((a, b) => {
+      if (sortBy === "date-asc") return (a.createdAt || 0) - (b.createdAt || 0);
+      if (sortBy === "title-asc") return (a.title || "").localeCompare(b.title || "");
+      if (sortBy === "title-desc") return (b.title || "").localeCompare(a.title || "");
+      if (sortBy === "visits-desc") return (b.visitCount || 0) - (a.visitCount || 0);
+      return (b.createdAt || 0) - (a.createdAt || 0);
+    });
+  }, [sites, selectedCategory, selectedTags, searchQuery, sortBy]);
 
   const suggestions = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -432,10 +464,20 @@ function CollectionsInner() {
 
       <div>
         <div className="flex items-center justify-between mb-3 gap-2">
-          <p className="type-button-sm text-mute uppercase tracking-wide">
+          <button
+            type="button"
+            onClick={toggleCat}
+            className="inline-flex items-center gap-1.5 type-button-sm text-mute uppercase tracking-wide hover:text-ink transition-colors"
+            aria-expanded={catOpen}
+          >
+            {catOpen ? (
+              <ChevronDown className="h-3.5 w-3.5 shrink-0" />
+            ) : (
+              <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+            )}
             Category
-          </p>
-          {!editingCategories ? (
+          </button>
+          {!editingCategories && catOpen ? (
             <button
               type="button"
               onClick={startEditCategories}
@@ -447,108 +489,122 @@ function CollectionsInner() {
           ) : null}
         </div>
 
-        {editingCategories ? (
-          <div className="space-y-3">
-            <div className="space-y-2">
-              {draftCategoryRows.map((row) => (
-                <div key={row.key} className="flex items-center gap-2">
-                  <input
-                    value={row.name}
-                    onChange={(e) =>
-                      setDraftCategoryRows((prev) =>
-                        prev.map((r) =>
-                          r.key === row.key
-                            ? { ...r, name: e.target.value }
-                            : r
+        {catOpen && (
+          editingCategories ? (
+            <div className="space-y-3">
+              <div className="space-y-2">
+                {draftCategoryRows.map((row) => (
+                  <div key={row.key} className="flex items-center gap-2">
+                    <input
+                      value={row.name}
+                      onChange={(e) =>
+                        setDraftCategoryRows((prev) =>
+                          prev.map((r) =>
+                            r.key === row.key
+                              ? { ...r, name: e.target.value }
+                              : r
+                          )
                         )
-                      )
-                    }
-                    className="h-9 w-full rounded-md border border-hairline bg-canvas px-3 text-sm text-ink"
-                  />
-                  <button
-                    type="button"
-                    title={`Delete ${row.name}`}
-                    onClick={() =>
-                      setDraftCategoryRows((prev) =>
-                        prev.filter((r) => r.key !== row.key)
-                      )
-                    }
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-hairline bg-canvas text-destructive"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-            <p className="text-[11px] text-mute">
-              Deleted categories move pins to Uncategorized on Save.
-            </p>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={cancelEditCategories}
-                disabled={savingCategories}
-                className="btn-secondary flex-1"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={saveCategoryEdits}
-                disabled={savingCategories}
-                className="btn-primary flex-1"
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            {categories.map((cat) => {
-              const active =
-                (cat === "All" && selectedCategory === "All") ||
-                cat.toLowerCase() === selectedCategory.toLowerCase();
-              const isCatHF = isHuggingFace(cat);
-              return (
+                      }
+                      className="h-9 w-full rounded-md border border-hairline bg-canvas px-3 text-sm text-ink"
+                    />
+                    <button
+                      type="button"
+                      title={`Delete ${row.name}`}
+                      onClick={() =>
+                        setDraftCategoryRows((prev) =>
+                          prev.filter((r) => r.key !== row.key)
+                        )
+                      }
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-hairline bg-canvas text-destructive"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[11px] text-mute">
+                Deleted categories move pins to Uncategorized on Save.
+              </p>
+              <div className="flex gap-2">
                 <button
-                  key={cat}
                   type="button"
-                  onClick={() => setSelectedCategory(cat)}
-                  className={`${
-                    active ? "filter-chip-active" : "filter-chip"
-                  } inline-flex items-center gap-1.5`}
+                  onClick={cancelEditCategories}
+                  disabled={savingCategories}
+                  className="btn-secondary flex-1"
                 >
-                  {isCatHF && <HuggingFaceIcon className="h-3.5 w-3.5 shrink-0" />}
-                  <span>{cat}</span>
+                  Cancel
                 </button>
-              );
-            })}
-          </div>
+                <button
+                  type="button"
+                  onClick={saveCategoryEdits}
+                  disabled={savingCategories}
+                  className="btn-primary flex-1"
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {categories.map((cat) => {
+                const active =
+                  (cat === "All" && selectedCategory === "All") ||
+                  cat.toLowerCase() === selectedCategory.toLowerCase();
+                const isCatHF = isHuggingFace(cat);
+                return (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setSelectedCategory(cat)}
+                    className={`${
+                      active ? "filter-chip-active" : "filter-chip"
+                    } inline-flex items-center gap-1.5`}
+                  >
+                    {isCatHF && <HuggingFaceIcon className="h-3.5 w-3.5 shrink-0" />}
+                    <span>{cat}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )
         )}
       </div>
 
       {allTags.length > 0 && (
         <div>
-          <p className="type-button-sm text-mute mb-3 uppercase tracking-wide">
+          <button
+            type="button"
+            onClick={toggleTags}
+            className="inline-flex items-center gap-1.5 type-button-sm text-mute uppercase tracking-wide hover:text-ink transition-colors mb-3"
+            aria-expanded={tagsOpen}
+          >
+            {tagsOpen ? (
+              <ChevronDown className="h-3.5 w-3.5 shrink-0" />
+            ) : (
+              <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+            )}
             Tags
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {allTags.map(({ tag, count }) => {
-              const active = selectedTags.some(
-                (t) => t.toLowerCase() === tag.toLowerCase()
-              );
-              return (
-                <button
-                  key={tag}
-                  onClick={() => toggleTag(tag)}
-                  className={active ? "filter-chip-active" : "filter-chip"}
-                >
-                  {tag}
-                  <span className="ml-1.5 opacity-60">{count}</span>
-                </button>
-              );
-            })}
-          </div>
+          </button>
+          {tagsOpen && (
+            <div className="flex flex-wrap gap-2">
+              {allTags.map(({ tag, count }) => {
+                const active = selectedTags.some(
+                  (t) => t.toLowerCase() === tag.toLowerCase()
+                );
+                return (
+                  <button
+                    key={tag}
+                    onClick={() => toggleTag(tag)}
+                    className={active ? "filter-chip-active" : "filter-chip"}
+                  >
+                    {tag}
+                    <span className="ml-1.5 opacity-60">{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -715,9 +771,38 @@ function CollectionsInner() {
             </aside>
 
             <div className="flex-1 min-w-0">
-              <p className="text-[14px] font-bold text-ink mb-4">
-                {filteredSites.length} of {sites.length} pins
-              </p>
+              <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+                <p className="text-[14px] font-bold text-ink">
+                  {filteredSites.length} of {sites.length} pins
+                </p>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-[12px] font-medium text-mute hidden sm:inline-flex items-center gap-1">
+                    <ArrowUpDown className="h-3 w-3" />
+                    Sort:
+                  </span>
+                  <select
+                    value={sortBy}
+                    onChange={(e) =>
+                      setSortBy(
+                        e.target.value as
+                          | "date-desc"
+                          | "date-asc"
+                          | "title-asc"
+                          | "title-desc"
+                          | "visits-desc"
+                      )
+                    }
+                    className="h-9 rounded-full border border-hairline bg-surface-card px-3 text-[13px] font-medium text-ink focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer hover:bg-canvas transition-colors"
+                  >
+                    <option value="date-desc">Newest first</option>
+                    <option value="date-asc">Oldest first</option>
+                    <option value="title-asc">Name (A–Z)</option>
+                    <option value="title-desc">Name (Z–A)</option>
+                    <option value="visits-desc">Most visited</option>
+                  </select>
+                </div>
+              </div>
 
               {loading ? (
                 <PinGridSkeleton count={8} />

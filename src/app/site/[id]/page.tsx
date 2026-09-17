@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { getSiteById, getSites, deleteSite, SavedSite } from "@/lib/db";
+import { getSiteById, getSites, getCategories, deleteSite, updateSite, recordSiteVisit, SavedSite } from "@/lib/db";
 import { useAuth } from "@/lib/auth-context";
 import { useOnePassword } from "@/lib/one-password-context";
 import RequireAuth from "@/components/RequireAuth";
@@ -17,6 +17,7 @@ import {
   Check,
   X,
   ExternalLink,
+  Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -64,6 +65,12 @@ function SiteInner() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Category editing
+  const [editingCategory, setEditingCategory] = useState(false);
+  const [draftCategory, setDraftCategory] = useState("");
+  const [allCategories, setAllCategories] = useState<string[]>([]);
+  const [savingCategory, setSavingCategory] = useState(false);
+
   const hostname = site ? getHostname(site.url) : "";
   const isHF = isHuggingFace(site);
 
@@ -83,9 +90,10 @@ function SiteInner() {
       if (!site) setLoading(true);
       try {
         const token = await getIdToken();
-        const [data, list] = await Promise.all([
+        const [data, list, cats] = await Promise.all([
           getSiteById(id, token),
           getSites(token),
+          getCategories(token).catch(() => [] as string[]),
         ]);
         if (cancelled) return;
         if (!data) {
@@ -93,6 +101,8 @@ function SiteInner() {
         } else {
           setSite(data);
           setNotFound(false);
+          // Record visit in background
+          recordSiteVisit(id, token).catch(() => {});
           try {
             sessionStorage.setItem(cacheKey(id), JSON.stringify(data));
           } catch {
@@ -100,6 +110,7 @@ function SiteInner() {
           }
         }
         setAllSites(list);
+        setAllCategories(cats);
       } catch {
         if (!cancelled && !site) setNotFound(true);
       } finally {
@@ -191,6 +202,41 @@ function SiteInner() {
     setAllSites((prev) => prev.filter((s) => s.id !== sid));
   };
 
+  const startEditCategory = async () => {
+    const ok = await requireEditAccess({ force: true });
+    if (!ok) return;
+    setDraftCategory(site?.category || "");
+    setEditingCategory(true);
+  };
+
+  const cancelEditCategory = () => {
+    setEditingCategory(false);
+    setDraftCategory("");
+  };
+
+  const saveCategory = async () => {
+    if (!site || !draftCategory.trim()) return;
+    setSavingCategory(true);
+    try {
+      const token = await getIdToken();
+      const unlock =
+        unlockToken ||
+        (typeof window !== "undefined"
+          ? sessionStorage.getItem("siteseen_one_password_unlock")
+          : null);
+      await updateSite(site.id, { category: draftCategory.trim() }, token, unlock);
+      const updated = { ...site, category: draftCategory.trim() };
+      setSite(updated);
+      try { sessionStorage.setItem(cacheKey(site.id), JSON.stringify(updated)); } catch { /* ignore */ }
+      toast.success("Category updated");
+      setEditingCategory(false);
+    } catch {
+      toast.error("Failed to update category.");
+    } finally {
+      setSavingCategory(false);
+    }
+  };
+
   if (loading && !site) {
     return <BrandLoader label="Loading pin..." />;
   }
@@ -274,15 +320,89 @@ function SiteInner() {
                 )}
               </div>
               <div className="min-w-0 flex-1">
-                {site.category || isHF ? (
-                  <p className="text-[12px] font-bold text-mute mb-0.5 inline-flex items-center gap-1.5">
-                    {isHF && <HuggingFaceIcon className="h-3.5 w-3.5 shrink-0" />}
-                    <span>{site.category || "Hugging Face"}</span>
-                  </p>
-                ) : null}
-                <h1 className="type-heading-lg text-ink leading-tight">
-                  {site.title}
-                </h1>
+                {editingCategory ? (
+                  <div className="space-y-2">
+                    <p className="text-[11px] font-bold text-mute uppercase tracking-wide">Change Category</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {/* Existing categories as chips */}
+                      {Array.from(new Set([
+                        ...allCategories,
+                        ...(site.category ? [site.category] : []),
+                        "Uncategorized",
+                      ])).sort().map((cat) => (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => setDraftCategory(cat)}
+                          className={`filter-chip text-[12px] py-1 px-2.5 ${
+                            draftCategory === cat ? "filter-chip-active" : ""
+                          }`}
+                        >
+                          {cat}
+                        </button>
+                      ))}
+                    </div>
+                    {/* Free-text input for new category */}
+                    <input
+                      type="text"
+                      value={draftCategory}
+                      onChange={(e) => setDraftCategory(e.target.value)}
+                      placeholder="Or type a new category..."
+                      className="h-9 w-full rounded-md border border-hairline bg-surface-soft px-3 text-sm text-ink"
+                    />
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={cancelEditCategory}
+                        disabled={savingCategory}
+                        className="btn-secondary h-8 text-xs flex-1"
+                      >
+                        <X className="h-3 w-3" /> Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={saveCategory}
+                        disabled={savingCategory || !draftCategory.trim()}
+                        className="btn-primary h-8 text-xs flex-1"
+                      >
+                        <Check className="h-3 w-3" />
+                        {savingCategory ? "Saving..." : "Save"}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {(site.category || isHF) ? (
+                      <div className="inline-flex items-center gap-1.5 mb-0.5 group">
+                        <p className="text-[12px] font-bold text-mute inline-flex items-center gap-1.5">
+                          {isHF && <HuggingFaceIcon className="h-3.5 w-3.5 shrink-0" />}
+                          <span>{site.category || "Hugging Face"}</span>
+                        </p>
+                        <button
+                          type="button"
+                          onClick={startEditCategory}
+                          title="Change category"
+                          className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity ml-0.5 text-ash hover:text-ink"
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={startEditCategory}
+                        title="Set category"
+                        className="inline-flex items-center gap-1 text-[12px] font-bold text-ash hover:text-ink mb-0.5 transition-colors"
+                      >
+                        <Pencil className="h-3 w-3" />
+                        Add category
+                      </button>
+                    )}
+                    <h1 className="type-heading-lg text-ink leading-tight">
+                      {site.title}
+                    </h1>
+                  </>
+                )}
               </div>
             </div>
 

@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { SavedSite } from "@/lib/db";
+import { SavedSite, recordSiteVisit } from "@/lib/db";
+import { useAuth } from "@/lib/auth-context";
 import { useOnePassword } from "@/lib/one-password-context";
-import { ArrowUpRight, Trash2, Check, X } from "lucide-react";
+import { ArrowUpRight, Trash2, Check, X, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { HuggingFaceIcon, isHuggingFace } from "@/components/HuggingFace";
 
@@ -23,10 +24,12 @@ function getHostname(url: string) {
 
 export default function SiteCard({ site, onDelete }: SiteCardProps) {
   const router = useRouter();
+  const { getIdToken } = useAuth();
   const { requireEditAccess } = useOnePassword();
   const [isDeleting, setIsDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [imgFailed, setImgFailed] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const hostname = getHostname(site.url);
   const title = (site.title || "").trim() || hostname;
@@ -43,8 +46,33 @@ export default function SiteCard({ site, onDelete }: SiteCardProps) {
     } catch {
       // ignore quota
     }
+    // Record visit asynchronously in background
+    getIdToken()
+      .then((token) => recordSiteVisit(site.id, token))
+      .catch(() => {});
+
     router.prefetch(`/site/${site.id}`);
     router.push(`/site/${site.id}`);
+  };
+
+  const handleCopyUrl = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(site.url);
+      setCopied(true);
+      toast.success("URL copied to clipboard!", { description: site.url });
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error("Failed to copy URL");
+    }
+  };
+
+  const handleVisitClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    getIdToken()
+      .then((token) => recordSiteVisit(site.id, token))
+      .catch(() => {});
   };
 
   const handleDeleteClick = async (e: React.MouseEvent) => {
@@ -161,9 +189,20 @@ export default function SiteCard({ site, onDelete }: SiteCardProps) {
           ) : (
             <>
               <button
+                onClick={handleCopyUrl}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-canvas text-ink shadow-sm hover:scale-105 transition-transform"
+                title="Copy URL"
+              >
+                {copied ? (
+                  <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                ) : (
+                  <Copy className="h-3.5 w-3.5" />
+                )}
+              </button>
+              <button
                 onClick={handleDeleteClick}
                 disabled={isDeleting}
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-canvas text-ink shadow-sm"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-canvas text-ink shadow-sm hover:text-destructive hover:scale-105 transition-all"
                 title="Remove"
               >
                 <Trash2 className="h-3.5 w-3.5" />
@@ -172,9 +211,9 @@ export default function SiteCard({ site, onDelete }: SiteCardProps) {
                 href={site.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-canvas text-ink shadow-sm"
-                title="Visit"
-                onClick={(e) => e.stopPropagation()}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-canvas text-ink shadow-sm hover:scale-105 transition-transform"
+                title="Visit site"
+                onClick={handleVisitClick}
               >
                 <ArrowUpRight className="h-3.5 w-3.5" />
               </a>

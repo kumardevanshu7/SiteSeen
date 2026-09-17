@@ -5,6 +5,7 @@ import {
   useContext,
   useEffect,
   useState,
+  useRef,
   ReactNode,
 } from "react";
 import {
@@ -32,9 +33,16 @@ const AuthContext = createContext<AuthContextValue>({
   getIdToken: async () => null,
 });
 
+/** Token cache: avoid calling user.getIdToken() on every page action */
+interface TokenCache {
+  token: string;
+  expiresAt: number; // ms timestamp
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const tokenCacheRef = useRef<TokenCache | null>(null);
 
   useEffect(() => {
     if (!auth || !isFirebaseConfigured) {
@@ -44,6 +52,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const unsub = onAuthStateChanged(auth, (next) => {
       setUser(next);
+      // Clear cached token whenever the user changes
+      tokenCacheRef.current = null;
       setLoading(false);
     });
 
@@ -74,6 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     if (!auth) return;
     try {
+      tokenCacheRef.current = null;
       sessionStorage.removeItem("siteseen_one_password_unlock");
       localStorage.removeItem("siteseen_bookmarks");
       await firebaseSignOut(auth);
@@ -87,7 +98,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const getIdToken = async () => {
     if (!user) return null;
     try {
-      return await user.getIdToken();
+      const now = Date.now();
+      const cache = tokenCacheRef.current;
+      // Reuse token if it won't expire for another 3 minutes (Firebase tokens last 1h)
+      if (cache && cache.expiresAt - now > 3 * 60 * 1000) {
+        return cache.token;
+      }
+      const token = await user.getIdToken();
+      // Cache for 55 minutes
+      tokenCacheRef.current = { token, expiresAt: now + 55 * 60 * 1000 };
+      return token;
     } catch {
       return null;
     }

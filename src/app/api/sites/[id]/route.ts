@@ -115,3 +115,52 @@ export async function DELETE(
     );
   }
 }
+
+/** POST /api/sites/[id] — Record open/visit without requiring One Password */
+export async function POST(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const user = await requireGoogleAuth(req);
+    if (!user) {
+      return NextResponse.json(
+        { error: "Sign in with Google required.", code: "AUTH_REQUIRED" },
+        { status: 401 }
+      );
+    }
+
+    const db = getAdminDb();
+    const docRef = db.collection("sites").doc(params.id);
+    const snap = await docRef.get();
+    if (!snap.exists) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    const data = snap.data();
+    if (data?.ownerUid !== user.uid) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    const now = Date.now();
+    const currentCount = typeof data?.visitCount === "number" ? data.visitCount : 0;
+    const newCount = currentCount + 1;
+
+    await docRef.update({
+      lastOpenedAt: now,
+      visitCount: newCount,
+    });
+
+    return NextResponse.json({
+      ok: true,
+      lastOpenedAt: now,
+      visitCount: newCount,
+    });
+  } catch (error) {
+    console.error("POST /api/sites/[id] (visit) failed:", error);
+    return NextResponse.json(
+      { error: "Failed to record visit" },
+      { status: 500 }
+    );
+  }
+}
