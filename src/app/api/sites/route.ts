@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebase-admin";
 import { requireEditAccess, requireGoogleAuth } from "@/lib/api-auth";
+import { ensureCategoryInSettings } from "@/lib/categories-admin";
 
 export const dynamic = "force-dynamic";
 
@@ -73,6 +74,10 @@ export async function POST(req: NextRequest) {
     const db = getAdminDb();
     const ref = await db.collection("sites").add(site);
 
+    if (site.category) {
+      await ensureCategoryInSettings(access.user.uid, site.category);
+    }
+
     return NextResponse.json({ site: { id: ref.id, ...site } }, { status: 201 });
   } catch (error) {
     console.error("POST /api/sites failed:", error);
@@ -122,6 +127,10 @@ export async function PATCH(req: NextRequest) {
     }
 
     await batch.commit();
+
+    if (sanitizedUpdates.category && typeof sanitizedUpdates.category === "string") {
+      await ensureCategoryInSettings(access.user.uid, sanitizedUpdates.category);
+    }
 
     return NextResponse.json({ ok: true, updatedCount: ids.length });
   } catch (error) {

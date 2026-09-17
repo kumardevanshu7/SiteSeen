@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebase-admin";
 import { requireEditAccess, requireGoogleAuth } from "@/lib/api-auth";
+import { ensureCategoryInSettings } from "@/lib/categories-admin";
 
 export const dynamic = "force-dynamic";
 
@@ -74,6 +75,11 @@ export async function PATCH(
 
     const db = getAdminDb();
     await db.collection("sites").doc(params.id).update(updates);
+
+    if (updates.category && typeof updates.category === "string") {
+      await ensureCategoryInSettings(access.user.uid, updates.category);
+    }
+
     const site = await getOwnedSite(params.id, access.user.uid);
 
     return NextResponse.json({ site });

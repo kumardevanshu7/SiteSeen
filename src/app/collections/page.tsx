@@ -157,14 +157,21 @@ function CollectionsInner() {
   }, [user, getIdToken]);
 
   const categories = useMemo(() => {
-    if (managedCategories.length > 0) {
-      const set = new Set<string>(managedCategories);
-      if (sites.some((s) => (s.category || "").toLowerCase() === "uncategorized")) {
-        set.add("Uncategorized");
+    const set = new Set<string>();
+    for (const c of managedCategories) {
+      if (c && c.trim() && c.toLowerCase() !== "uncategorized") {
+        set.add(c.trim());
       }
-      return ["All", ...Array.from(set).sort((a, b) => a.localeCompare(b))];
     }
-    const set = new Set<string>([...sites.map((s) => s.category).filter(Boolean)]);
+    for (const s of sites) {
+      const c = (s.category || "").trim();
+      if (c && c.toLowerCase() !== "uncategorized") {
+        set.add(c);
+      }
+    }
+    if (sites.some((s) => (s.category || "").toLowerCase() === "uncategorized")) {
+      set.add("Uncategorized");
+    }
     return ["All", ...Array.from(set).sort((a, b) => a.localeCompare(b))];
   }, [sites, managedCategories]);
 

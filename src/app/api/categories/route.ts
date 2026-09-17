@@ -31,14 +31,13 @@ export async function GET(req: NextRequest) {
 
     const db = getAdminDb();
     const snap = await db.collection("settings").doc(docId(user.uid)).get();
-    const stored = (snap.data()?.names as string[] | undefined) || [];
-
-    if (stored.length > 0) {
-      // User has explicitly customized categories — this is authoritative!
-      // Do NOT merge old categories from sites to prevent resurrecting deleted ones.
-      const cleaned = Array.from(new Set(stored.map((n) => n.trim()).filter(Boolean)));
-      return NextResponse.json({ categories: cleaned });
-    }
+    const stored = ((snap.data()?.names as string[] | undefined) || [])
+      .map((n) => n.trim())
+      .filter(Boolean);
+    const deleted = ((snap.data()?.deleted as string[] | undefined) || [])
+      .map((d) => d.trim().toLowerCase())
+      .filter(Boolean);
+    const deletedNorm = new Set(deleted);
 
     const siteSnap = await db
       .collection("sites")
@@ -47,17 +46,41 @@ export async function GET(req: NextRequest) {
     const fromSites = new Set<string>();
     siteSnap.docs.forEach((d) => {
       const c = (d.data().category as string | undefined)?.trim();
-      if (c) fromSites.add(c);
+      if (c && c.toLowerCase() !== "uncategorized") {
+        if (!deletedNorm.has(c.toLowerCase())) {
+          fromSites.add(c);
+        }
+      }
     });
 
-    const merged = Array.from(
-      new Set([
-        ...DEFAULT_CATEGORIES,
-        ...Array.from(fromSites),
-      ])
-    ).filter(Boolean);
+    const mergedSet = new Set<string>();
+    // 1. Add all stored categories that aren't marked deleted
+    for (const s of stored) {
+      if (!deletedNorm.has(s.toLowerCase())) {
+        mergedSet.add(s);
+      }
+    }
+    // 2. Add active categories from sites that aren't marked deleted
+    fromSites.forEach((c) => mergedSet.add(c));
 
-    return NextResponse.json({ categories: merged });
+    let finalCategories = Array.from(mergedSet);
+    if (finalCategories.length === 0 && stored.length === 0) {
+      finalCategories = DEFAULT_CATEGORIES;
+    }
+
+    // Keep settings doc in sync if sites had new active categories
+    if (stored.length > 0 && finalCategories.length !== stored.length) {
+      await db.collection("settings").doc(docId(user.uid)).set(
+        {
+          ownerUid: user.uid,
+          names: finalCategories,
+          updatedAt: Date.now(),
+        },
+        { merge: true }
+      );
+    }
+
+    return NextResponse.json({ categories: finalCategories });
   } catch (error) {
     console.error("GET /api/categories failed:", error);
     return NextResponse.json({ error: "Failed to load categories" }, { status: 500 });
@@ -96,16 +119,15 @@ export async function PUT(req: NextRequest) {
 
     const batch = db.batch();
     let ops = 0;
+    const delNorms = deletes.map((d) => String(d).trim().toLowerCase()).filter(Boolean);
 
     for (const doc of sitesSnap.docs) {
       const current = String(doc.data().category || "");
       const currentNorm = current.trim().toLowerCase();
       let next = current;
 
-      for (const del of deletes) {
-        if (currentNorm === String(del).trim().toLowerCase()) {
-          next = "Uncategorized";
-        }
+      if (delNorms.includes(currentNorm)) {
+        next = "Uncategorized";
       }
       for (const r of renames) {
         if (currentNorm === String(r.from).trim().toLowerCase()) {
@@ -122,15 +144,21 @@ export async function PUT(req: NextRequest) {
     const finalNames = Array.from(
       new Set(names.map((n) => n.trim()).filter(Boolean))
     );
-    if (!finalNames.some((n) => n.toLowerCase() === "uncategorized")) {
-      // ok if not present
-    }
+    const finalNamesLower = new Set(finalNames.map((n) => n.toLowerCase()));
+
+    // Get previous deleted and merge with new deletes
+    const prevSnap = await db.collection("settings").doc(docId(uid)).get();
+    const prevDeleted = (prevSnap.data()?.deleted as string[] | undefined) || [];
+    const updatedDeleted = Array.from(
+      new Set([...prevDeleted.map((d) => d.toLowerCase()), ...delNorms])
+    ).filter((d) => !finalNamesLower.has(d));
 
     batch.set(
       db.collection("settings").doc(docId(uid)),
       {
         ownerUid: uid,
         names: finalNames,
+        deleted: updatedDeleted,
         updatedAt: Date.now(),
       },
       { merge: true }

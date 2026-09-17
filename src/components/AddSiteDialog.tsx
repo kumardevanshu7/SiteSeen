@@ -469,12 +469,7 @@ export default function AddSiteDialog({
           favicon ||
           `https://www.google.com/s2/favicons?domain=${new URL(finalUrl).hostname}&sz=64`,
       });
-      if (
-        finalCategory &&
-        !categories.some((c) => c.toLowerCase() === finalCategory.toLowerCase())
-      ) {
-        onCategoriesChanged?.();
-      }
+      onCategoriesChanged?.();
       onClose();
     } catch (error) {
       toast.error("Failed to save website.");
