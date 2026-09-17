@@ -90,17 +90,20 @@ export function isHuggingFace(
 
   if (typeof target === "string") {
     const s = target.toLowerCase().trim();
+    const clean = s.replace(/[^\w\s]/g, "").replace(/\s+/g, " ").trim();
     return (
       s.includes("huggingface.co") ||
       s.includes("hf.co") ||
-      s === "hugging face" ||
-      s === "huggingface" ||
-      s === "hf"
+      clean === "hugging face" ||
+      clean === "huggingface" ||
+      clean === "hf" ||
+      clean.includes("hugging face") ||
+      clean.includes("huggingface") ||
+      s.includes("🤗")
     );
   }
 
   const urlLower = (target.url || "").toLowerCase();
-  const catLower = (target.category || "").toLowerCase();
   const titleLower = (target.title || "").toLowerCase();
 
   const rawTags = target.tags;
@@ -110,21 +113,12 @@ export function isHuggingFace(
       ? rawTags.split(",")
       : [];
 
-  const hasTag = tagList.some((t) => {
-    const clean = String(t).toLowerCase().trim();
-    return (
-      clean === "huggingface" ||
-      clean === "hugging face" ||
-      clean === "hf"
-    );
-  });
+  const hasTag = tagList.some((t) => isHuggingFace(String(t)));
 
   return (
     urlLower.includes("huggingface.co") ||
     urlLower.includes("hf.co") ||
-    catLower === "hugging face" ||
-    catLower === "huggingface" ||
-    catLower === "hf" ||
+    isHuggingFace(target.category) ||
     hasTag ||
     titleLower.startsWith("hugging face") ||
     titleLower.startsWith("huggingface")

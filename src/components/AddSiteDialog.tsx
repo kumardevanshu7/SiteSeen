@@ -17,7 +17,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
 import { useOnePassword } from "@/lib/one-password-context";
 import { getCategories, saveCategories, getSites, SavedSite } from "@/lib/db";
-import { HuggingFaceIcon, isHuggingFace, HUGGING_FACE_CATEGORY } from "@/components/HuggingFace";
+import { HuggingFaceIcon, isHuggingFace } from "@/components/HuggingFace";
 
 interface AddSiteDialogProps {
   isOpen: boolean;
@@ -259,12 +259,15 @@ export default function AddSiteDialog({
       const isHF = isHuggingFace(activeUrl);
 
       if (isHF) {
-        setCategories((prev) =>
-          prev.some((c) => c.toLowerCase() === HUGGING_FACE_CATEGORY.toLowerCase())
-            ? prev
-            : [HUGGING_FACE_CATEGORY, ...prev]
-        );
-        setCategory(HUGGING_FACE_CATEGORY);
+        // If the user already created a category matching Hugging Face (e.g. "🤗 Hugging Face" or "Hugging Face"),
+        // select that existing category. NEVER automatically create or inject a new category!
+        setCategories((prev) => {
+          const existingHf = prev.find((c) => isHuggingFace(c));
+          if (existingHf) {
+            setCategory(existingHf);
+          }
+          return prev;
+        });
       }
 
       try {
