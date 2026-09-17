@@ -442,11 +442,16 @@
     align-items: center;
     border-radius: 9999px;
     padding: 8px 16px;
-    background: rgb(var(--ink));
-    color: rgb(var(--on-dark));
+    background: #181816;
+    color: #ffffff;
     font-size: 14px;
     font-weight: 700;
     line-height: 1;
+  }
+
+  .dark .filter-chip-active {
+    background: #ffffff;
+    color: #181816;
   }
 
   .pin-overlay-pill {

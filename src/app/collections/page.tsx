@@ -11,7 +11,7 @@ import AddSiteDialog from "@/components/AddSiteDialog";
 import SiteCard from "@/components/SiteCard";
 import { PinGridSkeleton } from "@/components/SiteCardSkeleton";
 import SiteFooter from "@/components/SiteFooter";
-import { Search, Layers, X, Filter, Tag, Folder, Pencil, ChevronDown, ChevronRight, ArrowUpDown } from "lucide-react";
+import { Search, Layers, X, Filter, Tag, Folder, Pencil, ChevronDown, ChevronRight, ArrowUpDown, Check } from "lucide-react";
 import { toast } from "sonner";
 import { HuggingFaceIcon, isHuggingFace } from "@/components/HuggingFace";
 
@@ -79,6 +79,8 @@ function CollectionsInner() {
   const [managedCategories, setManagedCategories] = useState<string[]>([]);
   const [savingCategories, setSavingCategories] = useState(false);
   const searchWrapRef = useRef<HTMLDivElement>(null);
+  const [sortOpen, setSortOpen] = useState(false);
+  const sortWrapRef = useRef<HTMLDivElement>(null);
 
   // Collapsible filter sections — persist across refreshes
   const [catOpen, setCatOpen] = useState<boolean>(() => {
@@ -275,6 +277,17 @@ function CollectionsInner() {
     document.addEventListener("mousedown", onPointer);
     return () => document.removeEventListener("mousedown", onPointer);
   }, [suggestOpen]);
+
+  useEffect(() => {
+    if (!sortOpen) return;
+    const onPointer = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (sortWrapRef.current?.contains(target)) return;
+      setSortOpen(false);
+    };
+    document.addEventListener("mousedown", onPointer);
+    return () => document.removeEventListener("mousedown", onPointer);
+  }, [sortOpen]);
 
   const applySuggestion = (item: SearchSuggestion) => {
     if (item.kind === "site" && item.siteId) {
@@ -776,31 +789,62 @@ function CollectionsInner() {
                   {filteredSites.length} of {sites.length} pins
                 </p>
 
-                <div className="flex items-center gap-2">
-                  <span className="text-[12px] font-medium text-mute hidden sm:inline-flex items-center gap-1">
-                    <ArrowUpDown className="h-3 w-3" />
-                    Sort:
-                  </span>
-                  <select
-                    value={sortBy}
-                    onChange={(e) =>
-                      setSortBy(
-                        e.target.value as
-                          | "date-desc"
-                          | "date-asc"
-                          | "title-asc"
-                          | "title-desc"
-                          | "visits-desc"
-                      )
-                    }
-                    className="h-9 rounded-full border border-hairline bg-surface-card px-3 text-[13px] font-medium text-ink focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer hover:bg-canvas transition-colors"
+                <div className="relative" ref={sortWrapRef}>
+                  <button
+                    type="button"
+                    onClick={() => setSortOpen((v) => !v)}
+                    className="h-9 inline-flex items-center gap-2 rounded-full border border-hairline bg-surface-card hover:bg-canvas px-3.5 text-xs font-semibold text-ink transition-colors shadow-xs"
+                    aria-expanded={sortOpen}
                   >
-                    <option value="date-desc">Newest first</option>
-                    <option value="date-asc">Oldest first</option>
-                    <option value="title-asc">Name (A–Z)</option>
-                    <option value="title-desc">Name (Z–A)</option>
-                    <option value="visits-desc">Most visited</option>
-                  </select>
+                    <ArrowUpDown className="h-3.5 w-3.5 text-mute" />
+                    <span>
+                      {sortBy === "date-desc"
+                        ? "Newest first"
+                        : sortBy === "date-asc"
+                        ? "Oldest first"
+                        : sortBy === "title-asc"
+                        ? "Name (A–Z)"
+                        : sortBy === "title-desc"
+                        ? "Name (Z–A)"
+                        : "Most visited"}
+                    </span>
+                    <ChevronDown
+                      className={`h-3 w-3 text-mute transition-transform duration-200 ${
+                        sortOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
+
+                  {sortOpen && (
+                    <div className="absolute right-0 top-[calc(100%+6px)] z-50 w-44 rounded-xl border border-hairline bg-canvas p-1 shadow-modal">
+                      {[
+                        { value: "date-desc" as const, label: "Newest first" },
+                        { value: "date-asc" as const, label: "Oldest first" },
+                        { value: "title-asc" as const, label: "Name (A–Z)" },
+                        { value: "title-desc" as const, label: "Name (Z–A)" },
+                        { value: "visits-desc" as const, label: "Most visited" },
+                      ].map((opt) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => {
+                            setSortBy(opt.value);
+                            setSortOpen(false);
+                          }}
+                          className={`flex w-full items-center justify-between px-3 py-2 text-xs font-medium rounded-lg transition-colors ${
+                            sortBy === opt.value
+                              ? "bg-surface-card font-bold text-ink"
+                              : "text-body hover:bg-surface-card hover:text-ink"
+                          }`}
+                        >
+                          <span>{opt.label}</span>
+                          {sortBy === opt.value && (
+                            <Check className="h-3.5 w-3.5 text-primary" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 

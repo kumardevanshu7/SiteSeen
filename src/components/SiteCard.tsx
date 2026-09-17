@@ -149,13 +149,13 @@ export default function SiteCard({ site, onDelete }: SiteCardProps) {
         )}
 
         {isHF ? (
-          <span className="pin-overlay-pill absolute left-2.5 top-2.5 shadow-sm inline-flex items-center gap-1.5 border border-amber-300/50 bg-canvas/95 backdrop-blur-sm">
+          <span className="pin-overlay-pill absolute left-2.5 top-2.5 shadow-sm inline-flex items-center gap-1.5 border border-amber-300/50 bg-canvas/95 backdrop-blur-sm max-w-[calc(100%-20px)]">
             <HuggingFaceIcon className="h-3.5 w-3.5 shrink-0" />
-            <span>{site.category || "Hugging Face"}</span>
+            <span className="truncate">{site.category || "Hugging Face"}</span>
           </span>
         ) : site.category ? (
-          <span className="pin-overlay-pill absolute left-2.5 top-2.5 shadow-sm">
-            {site.category}
+          <span className="pin-overlay-pill absolute left-2.5 top-2.5 shadow-sm max-w-[calc(100%-20px)]">
+            <span className="truncate">{site.category}</span>
           </span>
         ) : null}
 
@@ -165,7 +165,7 @@ export default function SiteCard({ site, onDelete }: SiteCardProps) {
         />
 
         <div
-          className="absolute right-2.5 top-2.5 flex gap-1.5 opacity-0 transition-opacity group-hover:opacity-100"
+          className="absolute right-2.5 bottom-2.5 z-10 flex gap-1.5 opacity-0 transition-opacity group-hover:opacity-100"
           onClick={(e) => e.stopPropagation()}
         >
           {confirmDelete ? (

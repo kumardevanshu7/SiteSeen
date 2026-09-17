@@ -372,32 +372,21 @@ function SiteInner() {
                   </div>
                 ) : (
                   <>
-                    {(site.category || isHF) ? (
-                      <div className="inline-flex items-center gap-1.5 mb-0.5 group">
-                        <p className="text-[12px] font-bold text-mute inline-flex items-center gap-1.5">
-                          {isHF && <HuggingFaceIcon className="h-3.5 w-3.5 shrink-0" />}
-                          <span>{site.category || "Hugging Face"}</span>
-                        </p>
-                        <button
-                          type="button"
-                          onClick={startEditCategory}
-                          title="Change category"
-                          className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity ml-0.5 text-ash hover:text-ink"
-                        >
-                          <Pencil className="h-3 w-3" />
-                        </button>
-                      </div>
-                    ) : (
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[12px] font-bold text-mute inline-flex items-center gap-1.5">
+                        {isHF && <HuggingFaceIcon className="h-3.5 w-3.5 shrink-0" />}
+                        <span>{site.category || (isHF ? "Hugging Face" : "Uncategorized")}</span>
+                      </span>
                       <button
                         type="button"
                         onClick={startEditCategory}
-                        title="Set category"
-                        className="inline-flex items-center gap-1 text-[12px] font-bold text-ash hover:text-ink mb-0.5 transition-colors"
+                        title="Change category"
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-ink-soft bg-surface-card hover:bg-hairline px-2.5 py-0.5 rounded-full border border-hairline transition-colors cursor-pointer shadow-xs"
                       >
-                        <Pencil className="h-3 w-3" />
-                        Add category
+                        <Pencil className="h-2.5 w-2.5 text-mute" />
+                        <span>Edit</span>
                       </button>
-                    )}
+                    </div>
                     <h1 className="type-heading-lg text-ink leading-tight">
                       {site.title}
                     </h1>
